@@ -1,8 +1,9 @@
 //! Backups automáticos dos arquivos de projeto.
 //!
-//! Cada projeto tem uma pasta própria em
-//! `~/Library/Application Support/Investigando/backups/<slug>/` com até 20
-//! snapshots JSON. O nome do snapshot é o timestamp em milissegundos.
+//! Cada projeto tem uma pasta própria no diretório de dados do app
+//! (`~/Library/Application Support/Investigando/backups/<slug>/` no macOS,
+//! `%APPDATA%\Investigando\backups\<slug>\` no Windows) com até 20 snapshots
+//! JSON. O nome do snapshot é o timestamp em milissegundos.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,12 +22,40 @@ fn now_ms() -> u64 {
 }
 
 fn backups_root() -> PathBuf {
-    match std::env::var("HOME") {
-        Ok(home) if !home.is_empty() => {
-            PathBuf::from(home).join("Library/Application Support/Investigando/backups")
+    // Mesmo diretório de dados do app em cada sistema, para os backups
+    // acompanharem o projeto quando ele é movido entre máquinas.
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            if !home.is_empty() {
+                return PathBuf::from(home)
+                    .join("Library/Application Support/Investigando/backups");
+            }
         }
-        _ => std::env::temp_dir().join("Investigando/backups"),
     }
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            if !appdata.is_empty() {
+                return PathBuf::from(appdata).join("Investigando").join("backups");
+            }
+        }
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        if let Ok(data) = std::env::var("XDG_DATA_HOME") {
+            if !data.is_empty() {
+                return PathBuf::from(data).join("Investigando").join("backups");
+            }
+        }
+        if let Ok(home) = std::env::var("HOME") {
+            if !home.is_empty() {
+                return PathBuf::from(home)
+                    .join(".local/share/Investigando/backups");
+            }
+        }
+    }
+    std::env::temp_dir().join("Investigando/backups")
 }
 
 fn slug_for(path: &Path) -> String {

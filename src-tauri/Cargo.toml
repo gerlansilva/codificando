@@ -1,6 +1,6 @@
 [package]
 name = "codificando"
-version = "0.1.0"
+version = "0.2.0"
 description = "Codificando — análise qualitativa de dados"
 authors = ["Gerlan Silva da Silva"]
 license = ""
@@ -31,6 +31,9 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 notify = "8"
 base64 = "0.22"
+
+# OCR nativo do macOS (Apple Vision). Não entra no build de Windows/Linux.
+[target.'cfg(target_os = "macos")'.dependencies]
 objc2-vision = "0.3"
 objc2-foundation = "0.3"
 objc2 = "0.6"

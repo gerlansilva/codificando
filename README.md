@@ -88,16 +88,19 @@ npm run tauri build
 
 ## Dados
 
-Os dados continuam em:
+Os dados ficam no diretório de dados do sistema:
 
 ```
-~/Library/Application Support/Investigando/
+macOS    ~/Library/Application Support/Investigando/
+Windows  %APPDATA%\Investigando\
   investigando.json      # projeto atual
   files/                 # PDFs importados
+  backups/               # snapshots automáticos por projeto
 ```
 
 O app lê e grava o mesmo formato do Codificando anterior, então os projetos existentes
 abrem sem migração. Projetos `.investigando` podem ser abertos/salvos pelo menu do projeto.
+Em outra máquina, copie a pasta inteira para manter arquivos e backups.
 
 ## Arquitetura
 
@@ -110,6 +113,9 @@ abrem sem migração. Projetos `.investigando` podem ser abertos/salvos pelo men
 
 ## Observações
 
-- A impressão usa o diálogo nativo do macOS (`WebviewWindow::print`).
-- `.doc` e `.rtf` são convertidos com o `textutil` do sistema.
+- A impressão usa o diálogo nativo do sistema (`WebviewWindow::print`).
+- No macOS, `.doc` e `.rtf` são convertidos com o `textutil` do sistema e o OCR usa o
+  Apple Vision. No Windows, importe PDF ou `.docx`; `.doc`/`.rtf` e OCR ficam indisponíveis.
 - O diretório `electron/` é legado e não participa do build Tauri.
+- O instalador Windows sai sem assinatura de código; o SmartScreen pode pedir
+  “Mais informações → Executar assim mesmo” no primeiro uso.
