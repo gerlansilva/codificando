@@ -16,6 +16,8 @@
   "dependencies": {
     "@tauri-apps/api": "^2.12.5",
     "docx": "^9.16.0",
+    "@tauri-apps/plugin-clipboard-manager": "^2.5.0",
+    "@tauri-apps/plugin-notification": "^2.8.1",
     "mammoth": "^1.8.0",
     "pdfjs-dist": "3.11.174",
     "react": "^18.3.1",
