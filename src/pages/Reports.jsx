@@ -3,6 +3,7 @@ import { useData, navigate } from '../App.jsx'
 import { projectStats, formatDate } from '../lib/transcript.js'
 import { dataPath } from '../data/store.js'
 import { bridge } from '../lib/bridge.js'
+import { exportDocx, exportHtml } from '../lib/exports.js'
 
 function download (name, content, type) {
   return bridge.saveFile(name, content, type)
@@ -15,6 +16,8 @@ export default function Reports () {
   const stats = projectStats(data)
   const [path, setPath] = useState('')
   const [printing, setPrinting] = useState(false)
+  const [exporting, setExporting] = useState(null)
+  const [exportError, setExportError] = useState('')
 
   useEffect(() => { dataPath().then(setPath) }, [])
 
@@ -54,6 +57,20 @@ export default function Reports () {
     download('investigando-documentos.txt', parts.join('\n====================\n\n'), 'text/plain;charset=utf-8')
   }
 
+  const runExport = async (kind, fn) => {
+    if (exporting) return
+    setExportError('')
+    setExporting(kind)
+    try {
+      await fn(data)
+    } catch (err) {
+      console.error('Falha na exportação', err)
+      setExportError(`Não foi possível gerar o arquivo: ${err?.message || err}`)
+    } finally {
+      setExporting(null)
+    }
+  }
+
   const byCode = data.codes
     .map((c) => ({ ...c, n: data.excerpts.filter((e) => e.codeId === c.id).length }))
     .filter((c) => c.n > 0)
@@ -81,7 +98,25 @@ export default function Reports () {
             <button className="btn" onClick={exportCodesCsv}>Codebook (.csv)</button>
             <button className="btn" onClick={exportExcerptsCsv}>Trechos codificados (.csv)</button>
             <button className="btn" onClick={exportAllTxt}>Transcrições + códigos (.txt)</button>
+            <button
+              className="btn"
+              disabled={!!exporting}
+              onClick={() => runExport('docx', exportDocx)}
+            >
+              {exporting === 'docx' ? 'Gerando DOCX…' : 'Exportar DOCX'}
+            </button>
+            <button
+              className="btn"
+              disabled={!!exporting}
+              onClick={() => runExport('html', exportHtml)}
+            >
+              {exporting === 'html' ? 'Gerando HTML…' : 'Exportar HTML'}
+            </button>
           </div>
+
+          {exportError && (
+            <p style={{ color: 'var(--error-text)', fontSize: 13 }}>{exportError}</p>
+          )}
 
           <h2>Distribuição dos códigos</h2>
           <p className="sub">Quantos trechos cada código reúne no projeto.</p>
