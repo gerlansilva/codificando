@@ -16,8 +16,9 @@ Os instaladores e o manual estão em
 - Windows (x64): `Codificando_0.2.0_x64-setup.exe` (NSIS) ou `.msi`
 - Manual: `Codificando-manual-0.2.0.pdf`
 
-Os instaladores não são assinados. No macOS, abra com botão direito → Abrir; no
-Windows, se o SmartScreen avisar, use “Mais informações → Executar assim mesmo”.
+Não há certificado de desenvolvedor (assinatura de código) — o app é gratuito e não tem
+mensalidade nem conta em loja. No macOS, abra com botão direito → Abrir; no Windows, se o
+SmartScreen avisar, use “Mais informações → Executar assim mesmo”.
 
 ## Requisitos
 
@@ -134,5 +135,5 @@ Em outra máquina, copie a pasta inteira para manter arquivos e backups.
 - No macOS, `.doc` e `.rtf` são convertidos com o `textutil` do sistema e o OCR usa o
   Apple Vision. No Windows, importe PDF ou `.docx`; `.doc`/`.rtf` e OCR ficam indisponíveis.
 - O diretório `electron/` é legado e não participa do build Tauri.
-- O instalador Windows sai sem assinatura de código; o SmartScreen pode pedir
+- O instalador Windows sai sem certificado de desenvolvedor; o SmartScreen pode pedir
   “Mais informações → Executar assim mesmo” no primeiro uso.

@@ -48,8 +48,9 @@ jobs:
             Windows (x64): baixe o instalador `.msi` ou `.exe`.
 
             O manual completo está em anexo (`Codificando-manual-0.2.0.pdf`).
-            Os instaladores não são assinados: no macOS, abra com botão direito → Abrir;
-            no Windows, use "Mais informações → Executar assim mesmo" se o SmartScreen avisar.
+            Não há certificado de desenvolvedor: o app é gratuito e sem mensalidade.
+            No macOS, abra com botão direito → Abrir; no Windows, use
+            "Mais informações → Executar assim mesmo" se o SmartScreen avisar.
           releaseDraft: true
           prerelease: false
           args: >-
@@ -85,8 +86,9 @@ jobs:
             Windows (x64): baixe o instalador `.msi` ou `.exe`.
 
             O manual completo está em anexo (`Codificando-manual-0.2.0.pdf`).
-            Os instaladores não são assinados: no macOS, abra com botão direito → Abrir;
-            no Windows, use "Mais informações → Executar assim mesmo" se o SmartScreen avisar.
+            Não há certificado de desenvolvedor: o app é gratuito e sem mensalidade.
+            No macOS, abra com botão direito → Abrir; no Windows, use
+            "Mais informações → Executar assim mesmo" se o SmartScreen avisar.
           releaseDraft: true
           prerelease: false
           args: >-
