@@ -16,9 +16,32 @@ Os instaladores e o manual estão em
 - Windows (x64): `Codificando_0.2.4_x64-setup.exe` (NSIS) ou `.msi`
 - Manual: `Codificando-manual-0.2.4.pdf`
 
-Não há certificado de desenvolvedor (assinatura de código) — o app é gratuito e não tem
-mensalidade nem conta em loja. No macOS, abra com botão direito → Abrir; no Windows, se o
-SmartScreen avisar, use “Mais informações → Executar assim mesmo”.
+## Aviso de segurança do sistema
+
+O app é gratuito e não tem mensalidade, conta em loja nem telemetria. O aviso que o macOS e o
+Windows mostram na primeira abertura não é um vírus: é a ausência de um **certificado de
+desenvolvedor** (assinatura de código), que custa uma anuidade e existe para o sistema saber
+quem publicou o arquivo. Os instaladores daqui não têm esse certificado.
+
+**macOS** — o sistema diz que o app não pode ser verificado:
+
+1. Abra o `.dmg` e arraste o Codificando para **Aplicativos**.
+2. No Finder, clique no Codificando com o botão direito e escolha **Abrir** → **Abrir**.
+3. Se o macOS 14 ou 15 insistir, vá em **Ajustes do Sistema → Privacidade e Segurança** e
+   clique em **Abrir mesmo assim**.
+4. Como último recurso, no Terminal:
+   `xattr -dr com.apple.quarantine /Applications/Codificando.app`
+
+**Windows** — o SmartScreen diz "O Windows protegeu o computador":
+
+1. Clique em **Mais informações**.
+2. Clique em **Executar assim mesmo**.
+3. No `.msi`, se aparecer aviso do Windows Installer, confirme em **Executar**.
+
+Depois da primeira execução o aviso não volta. Assinar e notarizar exige uma conta paga
+(Apple Developer Program, US$ 99 por ano; certificado Windows, a partir de US$ 200 por ano) —
+veja [docs/DISTRIBUICAO.md](docs/DISTRIBUICAO.md) para o caminho completo, caso um dia valha
+a pena distribuir fora do grupo de pesquisa.
 
 ## Capturas
 

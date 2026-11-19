@@ -128,7 +128,69 @@ simples é assinar o `.app` antes de empacotar — o workflow de release faz iss
 automaticamente quando os segredos existem. Manualmente, rode o script no
 `.dmg` final (ele assina, notariza e grampeia o DMG inteiro).
 
-## 4. Chave do updater (assinatura das atualizações)
+## 4. Assinatura no Windows (opcional)
+
+Sem certificado, o SmartScreen mostra "O Windows protegeu o computador" até o arquivo ganhar
+reputação. Isso não impede o uso: **Mais informações → Executar assim mesmo**. Para remover o
+aviso de vez é preciso um certificado **Authenticode** de uma autoridade certificadora.
+
+O que existe hoje:
+
+- **OV (Organization Validation)** — mais barato (a partir de US$ 200 por ano). A reputação no
+  SmartScreen é construída com o tempo e com o número de downloads.
+- **EV (Extended Validation)** — mais caro e com verificação da empresa; dá reputação imediata.
+- **Azure Trusted Signing (Artifact Signing)** — US$ 9,99 por mês, sem token físico, mas hoje
+  restrito a organizações com histórico de pelo menos três anos e a uma lista limitada de
+  países. Confira a disponibilidade para o Brasil antes de contar com ele.
+- **Certificado autoassinado** — não resolve: o aviso continua, porque nenhum Windows confia
+  nele por padrão. Serve só para testes internos.
+
+Desde 2023 as CAs entregam a chave em token físico ou HSM em nuvem (SSL.com eSigner, DigiCert
+KeyLocker, Sectigo). O `signtool` assina o `.exe` e o `.msi` com esse material.
+
+### Configurar no Tauri
+
+Com o certificado instalado no repositório de certificados do Windows, o bundler assina
+sozinho. Em `src-tauri/tauri.conf.json`:
+
+```json
+"bundle": {
+  "windows": {
+    "certificateThumbprint": "A1B2C3...",
+    "digestAlgorithm": "sha256",
+    "timestampUrl": "http://timestamp.digicert.com"
+  }
+}
+```
+
+No GitHub Actions, importe o `.pfx` antes do build e passe o thumbprint por um arquivo de
+configuração extra:
+
+```powershell
+certutil -f -p "$env:PFX_PASSWORD" -importpfx "$env:RUNNER_TEMP\cert.pfx" NoExport
+```
+
+```yaml
+- name: Assinar (quando houver certificado)
+  if: env.PFX_BASE64 != ''
+  shell: pwsh
+  run: |
+    [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\cert.pfx", [Convert]::FromBase64String($env:PFX_BASE64))
+    certutil -f -p "$env:PFX_PASSWORD" -importpfx "$env:RUNNER_TEMP\cert.pfx" NoExport
+```
+
+Com HSM em nuvem, use `bundle.windows.signCommand` para chamar o `signtool` do provedor no
+lugar da assinatura padrão.
+
+### Verificar
+
+```powershell
+Get-AuthenticodeSignature .\Codificando_0.2.4_x64-setup.exe | Format-List Status, SignerCertificate
+```
+
+`Status` precisa ser `Valid`. O `.msi` e o `.exe` (NSIS) são assinados separadamente.
+
+## 5. Chave do updater (assinatura das atualizações)
 
 O updater usa um par de chaves **minisign**, independente do certificado Apple.
 A chave privada assina os artefatos; a pública fica embutida no app e é a única
@@ -169,6 +231,9 @@ No CI, configure:
 | `APPLE_ID` | e-mail da conta Apple |
 | `APPLE_PASSWORD` | senha de app (usada pelo `tauri build`) |
 | `APPLE_TEAM_ID` | Team ID |
+| `WINDOWS_CERTIFICATE` | `.pfx` em base64 (quando a assinatura Windows estiver configurada) |
+| `WINDOWS_CERTIFICATE_PASSWORD` | senha do `.pfx` |
+| `WINDOWS_CERTIFICATE_THUMBPRINT` | thumbprint do certificado importado |
 
 Sem `TAURI_SIGNING_PRIVATE_KEY` o workflow ainda compila e publica os
 instaladores, mas **sem** atualização automática (o `latest.json` não é gerado).
@@ -191,7 +256,7 @@ Se a chave do updater for rotacionada, os usuários da versão antiga precisam
 instalar manualmente uma versão nova (a chave antiga não valida a assinatura
 nova).
 
-## 5. Instalação local segura
+## 6. Instalação local segura
 
 Para testar o build antes de publicar:
 
@@ -213,7 +278,7 @@ O script:
 Para voltar atrás, arraste o app preservado de volta para `/Applications` ou
 abra-o direto do nome de reserva.
 
-## 6. Release pelo GitHub Actions
+## 7. Release pelo GitHub Actions
 
 `.github/workflows/release.yml` roda em tags `v*` e tem dois jobs:
 
