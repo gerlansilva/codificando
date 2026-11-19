@@ -13,6 +13,7 @@ export default function Transcripts () {
   const [ctx, setCtx] = useState(null)
   const [dragover, setDragover] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [ocrActive, setOcrActive] = useState(false)
   const [feedback, setFeedback] = useState(null)
   const [confirmDel, setConfirmDel] = useState(null)
   const [type, setType] = useState('all')
@@ -57,9 +58,12 @@ export default function Transcripts () {
           let bad = 0
           for (const f of files) {
             try {
-              const res = await importOneFile(f, createTranscript)
+              const res = await importOneFile(f, createTranscript, '', {
+                onStatus: (st) => setOcrActive(st === 'ocr')
+              })
               if (res.ok) ok++; else bad++
             } catch { bad++ }
+            setOcrActive(false)
           }
           setImporting(false)
           setFeedback(`${ok} importado${ok === 1 ? '' : 's'}${bad ? ` · ${bad} com problema` : ''}`)
@@ -73,6 +77,7 @@ export default function Transcripts () {
           </div>
         )}
         {importing && <div className="import-banner">Importando…</div>}
+        {ocrActive && <div className="import-banner">PDF escaneado: aplicando OCR…</div>}
         {feedback && <div className="import-banner">{feedback}</div>}
 
         {items.length === 0

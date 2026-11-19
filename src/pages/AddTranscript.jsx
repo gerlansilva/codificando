@@ -37,7 +37,9 @@ export default function AddTranscript () {
 
     for (const item of items) {
       try {
-        const res = await importOneFile(item.file, createTranscript, list.length === 1 ? typed : '')
+        const res = await importOneFile(item.file, createTranscript, list.length === 1 ? typed : '', {
+          onStatus: (status) => setQueue((q) => (q ? q.map((x) => (x.id === item.id ? { ...x, status } : x)) : q))
+        })
         if (!res.ok) throw new Error(res.error)
         setQueue((q) => (q ? q.map((x) => (x.id === item.id ? { ...x, status: 'ok', docId: res.id, title: res.name } : x)) : q))
       } catch (err) {
@@ -186,13 +188,17 @@ export default function AddTranscript () {
                     )
                     : <span>{f.name}</span>}
                   {f.status === 'pending' && <span style={{ color: 'var(--blue)' }}>importando…</span>}
+                  {f.status === 'ocr' && <span style={{ color: 'var(--blue)' }}>PDF escaneado: aplicando OCR…</span>}
                   {f.status === 'ok' && <span className="status-ok">✓</span>}
                   {f.status === 'error' && (
                     <span className="status-err">
                       {f.error === 'empty' ? 'Sem texto extraível'
-                        : f.error === 'big' ? 'Acima do limite'
-                          : f.error === 'convert-unsupported' ? 'Conversão de .doc só no app'
-                            : 'Algo deu errado'}
+                        : f.error === 'ocr-failed' ? 'OCR falhou'
+                          : f.error === 'ocr-empty' ? 'OCR não reconheceu texto'
+                            : f.error === 'ocr-unavailable' ? 'PDF escaneado: OCR só no app'
+                              : f.error === 'big' ? 'Acima do limite'
+                                : f.error === 'convert-unsupported' ? 'Conversão de .doc só no app'
+                                  : 'Algo deu errado'}
                     </span>
                   )}
                 </div>

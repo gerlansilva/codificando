@@ -6,6 +6,8 @@ use serde_json::Value;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
+mod ocr;
+
 fn b64() -> base64::engine::GeneralPurpose {
     base64::engine::general_purpose::STANDARD
 }
@@ -247,7 +249,8 @@ pub fn run() {
             pick_image,
             save_panel,
             open_panel,
-            convert_document
+            convert_document,
+            ocr::ocr_image
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
