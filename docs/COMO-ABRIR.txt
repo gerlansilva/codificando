@@ -1,0 +1,41 @@
+Codificando — como abrir no primeiro uso
+
+O aplicativo é gratuito e não tem assinatura paga de desenvolvedor. Por isso o
+Windows e o macOS mostram um aviso na primeira abertura. Não é vírus: é só o
+sistema dizendo que não conhece quem publicou o arquivo. Depois da primeira vez,
+o aviso não aparece mais.
+
+WINDOWS
+
+1. Baixe o Codificando_<versao>_x64-setup.exe (ou o .msi).
+2. Ao abrir, o SmartScreen mostra "O Windows protegeu o computador".
+3. Clique em "Mais informações".
+4. Clique em "Executar assim mesmo".
+5. No .msi, se o Windows Installer avisar, confirme em "Executar".
+
+Se o antivírus bloquear o arquivo, escolha "Permitir" ou "Restaurar" na
+quarentena. O aplicativo não usa rede, exceto quando você mesmo pede para
+verificar atualizações.
+
+MACOS (Apple Silicon)
+
+1. Abra o Codificando_<versao>_aarch64.dmg.
+2. Arraste o Codificando para a pasta Aplicativos.
+3. No Finder, clique no Codificando com o botão direito e escolha "Abrir".
+4. Confirme em "Abrir" na janela seguinte.
+5. No macOS 14 ou 15, se o sistema insistir:
+   Ajustes do Sistema > Privacidade e Segurança > "Abrir mesmo assim".
+
+Se aparecer "o app está danificado", abra o Terminal e rode:
+
+   xattr -dr com.apple.quarantine /Applications/Codificando.app
+
+Depois abra o app normalmente.
+
+ONDE FICAM OS DADOS
+
+   macOS    ~/Library/Application Support/Investigando/
+   Windows  %APPDATA%\Investigando\
+
+Copiar essa pasta para outra máquina leva o projeto, os PDFs anexados e os
+backups.

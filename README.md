@@ -38,7 +38,9 @@ quem publicou o arquivo. Os instaladores daqui não têm esse certificado.
 2. Clique em **Executar assim mesmo**.
 3. No `.msi`, se aparecer aviso do Windows Installer, confirme em **Executar**.
 
-Depois da primeira execução o aviso não volta. Assinar e notarizar exige uma conta paga
+Depois da primeira execução o aviso não volta. O mesmo texto está em
+[docs/COMO-ABRIR.txt](docs/COMO-ABRIR.txt), anexado a cada release para quem receber o
+instalador por outro caminho. Assinar e notarizar exige uma conta paga
 (Apple Developer Program, US$ 99 por ano; certificado Windows, a partir de US$ 200 por ano) —
 veja [docs/DISTRIBUICAO.md](docs/DISTRIBUICAO.md) para o caminho completo, caso um dia valha
 a pena distribuir fora do grupo de pesquisa.
