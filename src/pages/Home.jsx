@@ -1,11 +1,20 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { useData, navigate } from '../App.jsx'
 import { formatDate } from '../lib/transcript.js'
+import { loadRecentProjects, shortPath, getProjectPath } from '../data/store.js'
 import Icon from '../components/Icon.jsx'
 
 /** Tela inicial do projeto (visão geral), no espírito do Home do Atlas.ti. */
 export default function Home () {
-  const { data } = useData()
+  const { data, openProjectAt, openProject } = useData()
+  const [recents, setRecents] = useState(() => loadRecentProjects())
+  const [opening, setOpening] = useState(null)
+
+  // atualiza ao voltar para o Home ou trocar de projeto
+  useEffect(() => { setRecents(loadRecentProjects()) }, [data.project.name])
+
+  const currentPath = getProjectPath()
+  const otherProjects = recents.filter((r) => r.path !== currentPath)
 
   const counts = useMemo(() => {
     const quotes = new Set(data.excerpts.map((e) => e.quoteId || e.id)).size
@@ -65,6 +74,48 @@ export default function Home () {
         {modified && <span>Última alteração em {formatDate(modified)}</span>}
         <span>Dados salvos localmente — sem envio para a rede.</span>
       </div>
+
+      <h2 className="home-section home-recent-title">Projetos recentes</h2>
+      {otherProjects.length > 0
+        ? (
+          <div className="recent-list">
+            {otherProjects.map((r) => (
+              <button
+                key={r.path}
+                className="recent-item"
+                disabled={opening === r.path}
+                title={r.path}
+                onClick={async () => {
+                  setOpening(r.path)
+                  await openProjectAt(r.path)
+                  setOpening(null)
+                }}
+              >
+                <span className="recent-icon"><Icon name="documents" size={18} /></span>
+                <span className="recent-info">
+                  <strong>{r.name}</strong>
+                  <span className="recent-path">{shortPath(r.path)}</span>
+                </span>
+                <span className="recent-date">
+                  {opening === r.path ? 'Abrindo…' : formatWhen(r.at)}
+                </span>
+              </button>
+            ))}
+          </div>
+        )
+        : (
+          <p className="home-desc recent-empty">Nenhum outro projeto recente. Ao abrir ou salvar um projeto, ele aparece aqui.</p>
+        )}
+      <div className="home-actions home-recent-actions">
+        <button className="btn" onClick={() => openProject()}>Abrir projeto…</button>
+      </div>
     </div>
   )
+}
+
+function formatWhen (iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { loadData, saveData, uid, emptyData, loadSettings, saveSettings, setProjectPath, getProjectPath, onSaveStatus, retrySave } from './data/store.js'
+import { loadData, saveData, uid, emptyData, loadSettings, saveSettings, setProjectPath, getProjectPath, onSaveStatus, retrySave, touchRecentProject } from './data/store.js'
 import { deleteBinary } from './lib/files.js'
 import { moveCode as moveCodeFn, nextColor, mergeCodeList } from './lib/codes.js'
 import { bridge } from './lib/bridge.js'
@@ -61,6 +61,7 @@ export default function App () {
   const [ready, setReady] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('investigando.sidebar') === 'collapsed')
   const [settings, setSettings] = useState(() => loadSettings())
+  const [projectMenu, setProjectMenu] = useState(false)
   const dataRef = useRef(null)
   const historyRef = useRef({ past: [], future: [] })
   const autoOpenedRef = useRef(false)
@@ -96,6 +97,13 @@ export default function App () {
   }, [])
 
   useEffect(() => {
+    if (!projectMenu) return
+    const close = () => setProjectMenu(false)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [projectMenu])
+
+  useEffect(() => {
     const st = loadSettings()
     if (st.projectPath) setProjectPath(st.projectPath)
     loadData().then((d) => {
@@ -103,6 +111,8 @@ export default function App () {
       if (!Array.isArray(d.queries)) d.queries = []
       if (!Array.isArray(d.quoteLinks)) d.quoteLinks = []
       if (!Array.isArray(d.codeLinks)) d.codeLinks = []
+      const current = getProjectPath()
+      if (current) touchRecentProject(current, d.project?.name)
       setData(d)
       dataRef.current = d
       setReady(true)
@@ -149,6 +159,27 @@ export default function App () {
   const undo = useCallback(() => applySnapshot('past', 'future'), [applySnapshot])
   const redo = useCallback(() => applySnapshot('future', 'past'), [applySnapshot])
 
+  /** Recarrega o arquivo do projeto sem salvar por cima (usado após restaurar backup). */
+  const reloadProject = useCallback(async () => {
+    const d = normalizeData(await loadData())
+    setData(d)
+    dataRef.current = d
+    return d
+  }, [])
+
+  /** Abre um projeto já conhecido (recentes) sem passar pelo diálogo. */
+  const openProjectAt = useCallback(async (path) => {
+    if (!path) return null
+    setProjectPath(path)
+    setSettings(saveSettings({ projectPath: path }))
+    const d = normalizeData(await loadData())
+    touchRecentProject(path, d.project?.name)
+    setData(d)
+    dataRef.current = d
+    navigate('/home')
+    return path
+  }, [])
+
   useEffect(() => {
     const onKey = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
@@ -170,6 +201,8 @@ export default function App () {
     update,
     undo,
     redo,
+    openProjectAt,
+    reloadProject,
     createTranscript: (name, body, extra = {}) => {
       const t = {
         id: uid(),
@@ -364,7 +397,6 @@ export default function App () {
       const d = emptyData()
       d.project.name = (name || '').trim() || 'Projeto sem título'
       d.project.description = (description || '').trim()
-      canSave.current = true
       setData(d)
       dataRef.current = d
       saveData(d)
@@ -376,6 +408,7 @@ export default function App () {
       if (!path) return null
       setProjectPath(path)
       setSettings(saveSettings({ projectPath: path }))
+      touchRecentProject(path, dataRef.current?.project?.name)
       saveData(dataRef.current)
       return path
     },
@@ -388,18 +421,7 @@ export default function App () {
     openProject: async () => {
       const path = await bridge.openPanel()
       if (!path) return null
-      setProjectPath(path)
-      setSettings(saveSettings({ projectPath: path }))
-      const d = await loadData()
-      if (!Array.isArray(d.memos)) d.memos = []
-      if (!Array.isArray(d.queries)) d.queries = []
-      if (!Array.isArray(d.quoteLinks)) d.quoteLinks = []
-      if (!Array.isArray(d.codeLinks)) d.codeLinks = []
-      canSave.current = true
-      setData(d)
-      dataRef.current = d
-      navigate('/home')
-      return path
+      return openProjectAt(path)
     },
     repairExcerptTexts: (transcriptId, map) => {
       update((d) => ({
@@ -423,7 +445,7 @@ export default function App () {
     removeExcerpt: (id) => {
       update((d) => ({ ...d, excerpts: d.excerpts.filter((e) => e.id !== id) }))
     }
-  }), [data, settings, update])
+  }), [data, settings, update, openProjectAt, reloadProject])
 
   if (!ready || !data) {
     return <div style={{ padding: 40, fontFamily: 'Helvetica Neue, sans-serif' }}>Carregando…</div>
@@ -454,9 +476,39 @@ export default function App () {
         />
         <div className="content">
           <div className="app-top">
-            <button className="app-project" onClick={() => navigate('/home')} title="Visão geral do projeto">
-              {data.project.name}
-            </button>
+            <div className="app-project-wrap">
+              <button className="app-project" onClick={() => navigate('/home')} title="Visão geral do projeto">
+                {data.project.name}
+              </button>
+              <button
+                className="app-project-more"
+                title="Menu do projeto"
+                aria-label="Menu do projeto"
+                onClick={() => setProjectMenu((v) => !v)}
+              >
+                ⋯
+              </button>
+              {projectMenu && (
+                <div className="dropdown-menu app-project-menu" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => { setProjectMenu(false); api.openProject() }}>
+                    Abrir projeto…
+                    <small>Escolher um arquivo .investigando</small>
+                  </button>
+                  <button onClick={() => { setProjectMenu(false); api.saveProjectAs() }}>
+                    Salvar como…
+                    <small>Gravar o projeto em outro arquivo</small>
+                  </button>
+                  <button onClick={() => { setProjectMenu(false); bridge.dataPath().then((p) => p && bridge.revealPath(p)) }}>
+                    Mostrar pasta de dados
+                    <small>Arquivos locais do aplicativo</small>
+                  </button>
+                  <button onClick={() => { setProjectMenu(false); navigate('/settings') }}>
+                    Backups do projeto
+                    <small>Histórico de versões do arquivo atual</small>
+                  </button>
+                </div>
+              )}
+            </div>
             <SaveStatus />
           </div>
           {route.name === 'home' && <Home />}
@@ -486,6 +538,16 @@ export default function App () {
       </div>
     </DataContext.Provider>
   )
+}
+
+/** Garante os arrays opcionais do schema. */
+function normalizeData (d) {
+  if (!d || typeof d !== 'object') return emptyData()
+  if (!Array.isArray(d.memos)) d.memos = []
+  if (!Array.isArray(d.queries)) d.queries = []
+  if (!Array.isArray(d.quoteLinks)) d.quoteLinks = []
+  if (!Array.isArray(d.codeLinks)) d.codeLinks = []
+  return d
 }
 
 /** Remove memos de citações que não existem mais. */

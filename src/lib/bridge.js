@@ -154,5 +154,42 @@ export const bridge = {
     if (wk) return callWk('convert', { base64, ext })
     if (electron?.convertDocument) return electron.convertDocument(base64, ext)
     return null
+  },
+
+  /* backups locais do arquivo de projeto */
+  async backupCreate (path) {
+    if (isTauri) return invoke('backup_create', { path })
+    if (wk) return callWk('backup.create', { path })
+    if (electron?.backupCreate) return electron.backupCreate(path)
+    return null
+  },
+
+  async backupList (path) {
+    if (isTauri) return invoke('backup_list', { path })
+    if (wk) return callWk('backup.list', { path })
+    if (electron?.backupList) return electron.backupList(path)
+    return []
+  },
+
+  async backupRestore (path, id) {
+    if (isTauri) return invoke('backup_restore', { path, id })
+    if (wk) return callWk('backup.restore', { path, id })
+    if (electron?.backupRestore) return electron.backupRestore(path, id)
+    return false
+  },
+
+  async backupDelete (path, id) {
+    if (isTauri) return invoke('backup_delete', { path, id })
+    if (wk) return callWk('backup.delete', { path, id })
+    if (electron?.backupDelete) return electron.backupDelete(path, id)
+    return false
+  },
+
+  /* revela um arquivo ou pasta no Finder */
+  async revealPath (path) {
+    if (isTauri) return invoke('reveal_path', { path })
+    if (wk) return callWk('revealPath', { path })
+    if (electron?.revealPath) return electron.revealPath(path)
+    return false
   }
 }

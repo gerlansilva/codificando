@@ -6,6 +6,8 @@ use serde_json::Value;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
+mod backup;
+
 fn b64() -> base64::engine::GeneralPurpose {
     base64::engine::general_purpose::STANDARD
 }
@@ -207,6 +209,16 @@ async fn open_panel(app: AppHandle) -> Option<String> {
 }
 
 #[tauri::command]
+fn reveal_path(path: String) -> bool {
+    let target = PathBuf::from(&path);
+    let mut cmd = std::process::Command::new("open");
+    if target.is_file() {
+        cmd.arg("-R");
+    }
+    cmd.arg(&target).spawn().is_ok()
+}
+
+#[tauri::command]
 fn convert_document(app: AppHandle, base64: String, ext: String) -> Option<String> {
     let bytes = b64().decode(base64.as_bytes()).ok()?;
     let tmp = std::env::temp_dir().join(format!("codificando-convert.{}", ext));
@@ -247,6 +259,11 @@ pub fn run() {
             pick_image,
             save_panel,
             open_panel,
+            reveal_path,
+            backup::backup_create,
+            backup::backup_list,
+            backup::backup_restore,
+            backup::backup_delete,
             convert_document
         ])
         .run(tauri::generate_context!())
