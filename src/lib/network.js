@@ -36,6 +36,7 @@ export function buildNetwork (data, options = {}) {
   const transcripts = Array.isArray(data?.transcripts) ? data.transcripts : []
   const quoteLinks = Array.isArray(data?.quoteLinks) ? data.quoteLinks : []
   const codeLinks = Array.isArray(data?.codeLinks) ? data.codeLinks : []
+  const nodeLinks = Array.isArray(data?.nodeLinks) ? data.nodeLinks : []
 
   const codeById = new Map(codes.map((c) => [c.id, c]))
   const docById = new Map(transcripts.map((t) => [t.id, t]))
@@ -137,7 +138,7 @@ export function buildNetwork (data, options = {}) {
     }
     for (const l of codeLinks) {
       if (!codeById.has(l.from) || !codeById.has(l.to)) continue
-      addEdge({ id: 'cl:' + (l.id || l.from + l.to), a: 'c:' + l.from, b: 'c:' + l.to, kind: 'codeLink', type: l.type })
+      addEdge({ id: 'cl:' + (l.id || l.from + l.to), a: 'c:' + l.from, b: 'c:' + l.to, kind: 'codeLink', type: l.type, label: l.label || '' })
     }
   }
 
@@ -183,7 +184,7 @@ export function buildNetwork (data, options = {}) {
       const a = 'q:' + l.from
       const b = 'q:' + l.to
       if (!seen.has(a) || !seen.has(b)) continue
-      addEdge({ id: 'ql:' + (l.id || l.from + l.to), a, b, kind: 'quoteLink', type: l.type })
+      addEdge({ id: 'ql:' + (l.id || l.from + l.to), a, b, kind: 'quoteLink', type: l.type, label: l.label || '' })
     }
   }
 
@@ -200,6 +201,19 @@ export function buildNetwork (data, options = {}) {
         weight: docCount.get(t.id) || 0
       })
     }
+  }
+
+  // Vínculos mistos (código↔trecho, código↔documento) usam ids de nó.
+  for (const l of nodeLinks) {
+    if (!seen.has(l.from) || !seen.has(l.to)) continue
+    addEdge({
+      id: 'nl:' + (l.id || l.from + l.to),
+      a: l.from,
+      b: l.to,
+      kind: 'nodeLink',
+      type: l.type,
+      label: l.label || ''
+    })
   }
 
   // Remove nós isolados abaixo do grau mínimo (ruído em redes grandes).
@@ -242,7 +256,8 @@ const EDGE_STYLE = {
   codeLink: { color: '#7d95b4', width: 1.6, dash: '2 3' },
   quoteLink: { color: '#c9a227', width: 1.5, dash: '6 3' },
   inDoc: { color: '#dde3ea', width: 1 },
-  cooccurrence: { color: '#8fa6c0', width: 1.2 }
+  cooccurrence: { color: '#8fa6c0', width: 1.2 },
+  nodeLink: { color: '#9a8bc4', width: 1.6, dash: '2 3' }
 }
 
 export function edgeStyle (edge) {
@@ -271,7 +286,7 @@ export const RELATION_TEXT = {
 
 /** Arestas que têm direção e, por isso, recebem seta. */
 export function isDirected (edge) {
-  return edge.kind === 'hierarchy' || edge.kind === 'codeLink' || edge.kind === 'quoteLink'
+  return edge.kind === 'hierarchy' || edge.kind === 'codeLink' || edge.kind === 'quoteLink' || edge.kind === 'nodeLink'
 }
 
 /**
@@ -329,7 +344,8 @@ export function nodeLabelLayout (n, width = 1000) {
 const ARROW_ID = {
   hierarchy: 'arrow-hierarchy',
   codeLink: 'arrow-code',
-  quoteLink: 'arrow-quote'
+  quoteLink: 'arrow-quote',
+  nodeLink: 'arrow-node'
 }
 
 /** Posições iniciais em espiral (determinísticas). */
@@ -539,7 +555,7 @@ export function networkSvg (nodes, edges, opts = {}) {
         const b = byId.get(e.b)
         if (!a || !b) return ''
         const g = edgeGeometry(a, b, e)
-        return `<text x="${g.midX.toFixed(1)}" y="${(g.midY - 5).toFixed(1)}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#6b7280" stroke="#ffffff" stroke-width="3" paint-order="stroke">${escapeXml(RELATION_TEXT[e.type] || e.type)}</text>`
+        return `<text x="${g.midX.toFixed(1)}" y="${(g.midY - 5).toFixed(1)}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#6b7280" stroke="#ffffff" stroke-width="3" paint-order="stroke">${escapeXml(e.label || RELATION_TEXT[e.type] || e.type)}</text>`
       }).join('')
     : ''
 
@@ -576,6 +592,9 @@ export function networkSvg (nodes, edges, opts = {}) {
   </marker>
   <marker id="arrow-hierarchy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
     <path d="M0,0 L10,5 L0,10 z" fill="#b8c0cb" />
+  </marker>
+  <marker id="arrow-node" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+    <path d="M0,0 L10,5 L0,10 z" fill="#9a8bc4" />
   </marker>
 </defs>
 ${title ? `<text x="56" y="64" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="28" font-weight="700" fill="#15294b">${escapeXml(title)}</text>` : ''}

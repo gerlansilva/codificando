@@ -38,10 +38,11 @@ export function relationLabelFor (type, items, outgoing = true) {
  * Escolhe um item e um tipo de relação.
  * items: [{ id, name, color?, meta? }]
  */
-export default function RelationModal ({ title, from, items, relations, fixedTarget = null, onSave, onClose }) {
+export default function RelationModal ({ title, from, items, relations, fixedTarget = null, initialType, initialLabel = '', submitLabel = 'Relacionar', onSave, onClose }) {
   const [q, setQ] = useState('')
   const [targetId, setTargetId] = useState(fixedTarget?.id || '')
-  const [type, setType] = useState(relations[0]?.value || 'associado')
+  const [type, setType] = useState(initialType || relations[0]?.value || 'associado')
+  const [label, setLabel] = useState(initialLabel || '')
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -59,7 +60,7 @@ export default function RelationModal ({ title, from, items, relations, fixedTar
   const submit = (e) => {
     e.preventDefault()
     if (!targetId) return
-    onSave(type, targetId)
+    onSave(type, targetId, label.trim())
     onClose()
   }
 
@@ -108,10 +109,22 @@ export default function RelationModal ({ title, from, items, relations, fixedTar
             </>
             )}
 
+        <label className="field-label relation-gap" htmlFor="rel-label">
+          Rótulo próprio <span className="relation-optional">(opcional)</span>
+        </label>
+        <input
+          id="rel-label"
+          className="input"
+          placeholder="deixe vazio para usar o tipo escolhido"
+          value={label}
+          maxLength={40}
+          onChange={(e) => setLabel(e.target.value)}
+        />
+
         <div className="modal-actions relation-actions">
           <button type="button" className="btn" onClick={onClose}>Cancelar</button>
           <button type="submit" className="btn btn--blue" disabled={!targetId || !target}>
-            Relacionar
+            {submitLabel}
           </button>
         </div>
       </form>

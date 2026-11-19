@@ -2697,3 +2697,17 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
 }
 
 .net-label { paint-order: stroke; stroke: #fff; stroke-width: 2.6px; stroke-linejoin: round; }
+
+.relation-optional { color: #9aa4b2; font-weight: 400; }
+
+/* criar, renomear e remover na própria rede */
+.net-link-add { margin-left: auto; font-size: 11.5px; letter-spacing: 0; text-transform: none; }
+.net-link-rename { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; font-size: 11.5px; color: var(--text-muted); }
+.net-link-rename:hover { color: var(--blue-link); text-decoration: underline; }
+.net-links-empty { margin: 4px 0 8px; font-size: 12px; }
+.net-remove-row { margin-top: 16px; padding-top: 10px; border-top: 1px solid #f0f3f7; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.net-danger { font-size: 12px; color: #b0453d; }
+.net-danger:hover { color: var(--error-text); }
+.net-danger-btn { color: #fff; background: #c0453c; border-color: #c0453c; }
+.net-danger-btn:hover { background: #a83b33; border-color: #a83b33; }
+.net-remove-hint { flex-basis: 100%; margin: 2px 0 0; font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }

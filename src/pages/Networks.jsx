@@ -15,7 +15,28 @@ import {
   nodeRadius
 } from '../lib/network.js'
 import Icon from '../components/Icon.jsx'
-import { CODE_RELATIONS, QUOTE_RELATIONS, relationLabelFor } from '../components/RelationModal.jsx'
+import RelationModal, { CODE_RELATIONS, QUOTE_RELATIONS, relationLabelFor } from '../components/RelationModal.jsx'
+
+// Vínculos mistos: qualquer nó com qualquer nó (código, trecho ou documento).
+const ANY_RELATIONS = [
+  { value: 'associado', label: 'está associado a' },
+  { value: 'explica', label: 'explica' },
+  { value: 'exemplifica', label: 'exemplifica' },
+  { value: 'contradiz', label: 'contradiz' },
+  { value: 'precede', label: 'precede' },
+  { value: 'retoma', label: 'retoma' }
+]
+
+// Criação: o destino pode ser código ou trecho, então o repertório é a união.
+const CREATE_RELATIONS = [
+  { value: 'associado', label: 'está associado a' },
+  { value: 'explica', label: 'explica' },
+  { value: 'exemplifica', label: 'exemplifica' },
+  { value: 'contradiz', label: 'contradiz' },
+  { value: 'precede', label: 'precede' },
+  { value: 'retoma', label: 'retoma' },
+  { value: 'parte', label: 'é parte de' }
+]
 
 const W = 1000
 const H = 700
@@ -24,7 +45,20 @@ const KIND_LABEL = { code: 'Código', quote: 'Trecho', doc: 'Documento' }
 
 /** Rede de relações: códigos, trechos e documentos em um grafo navegável. */
 export default function Networks () {
-  const { data, removeCodeLink, removeQuoteLink } = useData()
+  const {
+    data,
+    removeCodeLink,
+    removeQuoteLink,
+    updateCodeLink,
+    updateQuoteLink,
+    updateNodeLink,
+    removeNodeLink,
+    addCodeLink,
+    addQuoteLink,
+    addNodeLink,
+    deleteCode,
+    removeExcerpts
+  } = useData()
   const [showCodes, setShowCodes] = useState(true)
   const [showQuotes, setShowQuotes] = useState(true)
   const [showDocs, setShowDocs] = useState(false)
@@ -40,6 +74,8 @@ export default function Networks () {
   const dragRef = useRef(null)
   const panRef = useRef(null)
   const [layoutSeed, setLayoutSeed] = useState(0)
+  const [relationModal, setRelationModal] = useState(null)
+  const [confirmRemove, setConfirmRemove] = useState(false)
   const [, forceRender] = useState(0)
 
   const network = useMemo(
@@ -78,6 +114,7 @@ export default function Networks () {
   const highlighted = selected ? (neighbours.get(selected) || new Set()) : null
 
   useEffect(() => { setSelected(null) }, [layoutMode, view])
+  useEffect(() => { setConfirmRemove(false) }, [selected])
 
   const flash = (message) => {
     setNotice(message)
@@ -252,6 +289,58 @@ export default function Networks () {
     }
   }
 
+  const relationItems = selectedNode
+    ? nodes
+        .filter((n) => n.id !== selectedNode.id && n.kind !== 'doc')
+        .map((n) => ({
+          id: n.id,
+          name: n.kind === 'quote' ? n.label : n.label,
+          color: n.color,
+          meta: KIND_LABEL[n.kind]
+        }))
+    : []
+
+  const saveRelation = (type, targetId, label) => {
+    if (!selectedNode) return
+    if (relationModal?.mode === 'edit') {
+      const { edge } = relationModal
+      const id = edge.id.slice(3)
+      if (edge.kind === 'codeLink') updateCodeLink(id, { type, label })
+      else if (edge.kind === 'quoteLink') updateQuoteLink(id, { type, label })
+      else updateNodeLink(id, { type, label })
+      setRelationModal(null)
+      return
+    }
+    const target = byId.get(targetId)
+    if (!target) return
+    if (selectedNode.kind === 'code' && target.kind === 'code') {
+      addCodeLink(selectedNode.refId, target.refId, type, label)
+    } else if (selectedNode.kind === 'quote' && target.kind === 'quote') {
+      addQuoteLink(selectedNode.refId, target.refId, type, label)
+    } else {
+      addNodeLink(selectedNode.id, target.id, type, label)
+    }
+    setRelationModal(null)
+  }
+
+  const removeSelectedNode = () => {
+    if (!selectedNode) return
+    if (!confirmRemove) {
+      setConfirmRemove(true)
+      return
+    }
+    if (selectedNode.kind === 'code') {
+      deleteCode(selectedNode.refId)
+    } else if (selectedNode.kind === 'quote') {
+      const ids = (data.excerpts || [])
+        .filter((e) => String(e.quoteId || e.id) === selectedNode.refId)
+        .map((e) => e.id)
+      removeExcerpts(ids)
+    }
+    setSelected(null)
+    setConfirmRemove(false)
+  }
+
   const related = selectedNode
     ? [...(neighbours.get(selectedNode.id) || [])].map((id) => byId.get(id)).filter(Boolean)
     : []
@@ -290,14 +379,14 @@ export default function Networks () {
   const typedLinks = selectedNode
     ? network.edges
         .filter((e) => (e.a === selectedNode.id || e.b === selectedNode.id) &&
-          (e.kind === 'hierarchy' || e.kind === 'codeLink' || e.kind === 'quoteLink'))
+          (e.kind === 'hierarchy' || e.kind === 'codeLink' || e.kind === 'quoteLink' || e.kind === 'nodeLink'))
         .map((e) => {
           const otherId = e.a === selectedNode.id ? e.b : e.a
           const other = byId.get(otherId)
           if (!other) return null
-          const relation = relationLabelFor(
+          const relation = e.label?.trim() || relationLabelFor(
             e.type,
-            e.kind === 'codeLink' ? CODE_RELATIONS : QUOTE_RELATIONS,
+            e.kind === 'codeLink' ? CODE_RELATIONS : e.kind === 'nodeLink' ? ANY_RELATIONS : QUOTE_RELATIONS,
             e.a === selectedNode.id
           )
           return { edge: e, other, relation: e.kind === 'hierarchy' ? 'hierarquia' : relation }
@@ -414,6 +503,9 @@ export default function Networks () {
                       <marker id="net-arrow-hierarchy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
                         <path d="M0,0 L10,5 L0,10 z" fill="#b8c0cb" />
                       </marker>
+                      <marker id="net-arrow-node" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                        <path d="M0,0 L10,5 L0,10 z" fill="#9a8bc4" />
+                      </marker>
                     </defs>
                     <rect width={W} height={H} fill="#fff" />
                     <rect width={W} height={H} fill="url(#net-grid)" />
@@ -426,7 +518,7 @@ export default function Networks () {
                         const dim = selected && !(e.a === selected || e.b === selected)
                         const g = edgeGeometry(a, b, e)
                         const arrow = isDirected(e)
-                          ? `url(#net-arrow-${e.kind === 'codeLink' ? 'code' : e.kind === 'quoteLink' ? 'quote' : 'hierarchy'})`
+                          ? `url(#net-arrow-${e.kind === 'codeLink' ? 'code' : e.kind === 'quoteLink' ? 'quote' : e.kind === 'nodeLink' ? 'node' : 'hierarchy'})`
                           : undefined
                         return (
                           <g key={e.id} opacity={dim ? 0.25 : 0.9}>
@@ -442,7 +534,7 @@ export default function Networks () {
                             />
                             {showLabels && e.type && e.kind !== 'hierarchy' && (
                               <text className="net-edge-label" x={g.midX} y={g.midY - 5} textAnchor="middle">
-                                {RELATION_TEXT[e.type] || e.type}
+                                {e.label || RELATION_TEXT[e.type] || e.type}
                               </text>
                             )}
                           </g>
@@ -567,13 +659,32 @@ export default function Networks () {
                           ))}
                         </ul>
                       )}
-                    {typedLinks.length > 0 && (
+                    {selectedNode.kind !== 'doc' && (
                       <>
-                        <h3>Vínculos nomeados</h3>
+                        <h3>
+                          Vínculos nomeados
+                          <span className="net-side-count">{typedLinks.length}</span>
+                          <button
+                            className="btn--link net-link-add"
+                            onClick={() => setRelationModal({ mode: 'create' })}
+                          >
+                            + Ligar
+                          </button>
+                        </h3>
                         <ul className="net-links">
                           {typedLinks.map(({ edge, other, relation }) => (
                             <li key={edge.id}>
-                              <span className="net-link-kind">{relation}</span>
+                              {edge.kind === 'hierarchy'
+                                ? <span className="net-link-kind">{relation}</span>
+                                : (
+                                  <button
+                                    className="net-link-kind net-link-rename"
+                                    title="Clique para renomear ou mudar o tipo"
+                                    onClick={() => setRelationModal({ mode: 'edit', edge, other })}
+                                  >
+                                    {relation}
+                                  </button>
+                                  )}
                               <button
                                 className="net-link-target"
                                 title={other.label}
@@ -587,7 +698,8 @@ export default function Networks () {
                                   title="Remover vínculo"
                                   onClick={() => {
                                     if (edge.kind === 'codeLink') removeCodeLink(edge.id.slice(3))
-                                    else removeQuoteLink(edge.id.slice(3))
+                                    else if (edge.kind === 'quoteLink') removeQuoteLink(edge.id.slice(3))
+                                    else removeNodeLink(edge.id.slice(3))
                                   }}
                                 >
                                   ×
@@ -597,6 +709,12 @@ export default function Networks () {
                           ))}
                         </ul>
                       </>
+                    )}
+
+                    {typedLinks.length === 0 && selectedNode.kind !== 'doc' && (
+                      <p className="sub net-links-empty">
+                        Nenhum vínculo nomeado. Use <strong>+ Ligar</strong> para relacionar este item.
+                      </p>
                     )}
 
                     {selectedNode.kind === 'code' && selectedQuotes.length > 0 && (
@@ -631,12 +749,56 @@ export default function Networks () {
                         )}
                       </>
                     )}
+
+                    {selectedNode.kind !== 'doc' && (
+                      <div className="net-remove-row">
+                        <button
+                          className={confirmRemove ? 'btn btn--sm net-danger-btn' : 'btn--link net-danger'}
+                          onClick={removeSelectedNode}
+                        >
+                          {confirmRemove
+                            ? 'Confirmar remoção'
+                            : selectedNode.kind === 'code' ? 'Remover código' : 'Remover trecho'}
+                        </button>
+                        {confirmRemove && (
+                          <button className="btn--link" onClick={() => setConfirmRemove(false)}>
+                            Cancelar
+                          </button>
+                        )}
+                        {confirmRemove && (
+                          <p className="net-remove-hint">
+                            {selectedNode.kind === 'code'
+                              ? 'O código e suas codificações serão removidos do projeto.'
+                              : 'As codificações deste trecho serão removidas; o texto do documento não muda.'}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   )}
             </aside>
           </div>
         </div>
       </div>
+
+      {relationModal && selectedNode && (
+        <RelationModal
+          title={relationModal.mode === 'edit'
+            ? 'Renomear relação'
+            : selectedNode.kind === 'code' ? 'Ligar código a…' : 'Ligar trecho a…'}
+          from={selectedNode.label}
+          relations={CREATE_RELATIONS}
+          items={relationModal.mode === 'edit' ? [] : relationItems}
+          fixedTarget={relationModal.mode === 'edit'
+            ? { id: relationModal.other.id, name: relationModal.other.label }
+            : null}
+          initialType={relationModal.edge?.type}
+          initialLabel={relationModal.edge?.label || ''}
+          submitLabel={relationModal.mode === 'edit' ? 'Salvar' : 'Relacionar'}
+          onSave={saveRelation}
+          onClose={() => setRelationModal(null)}
+        />
+      )}
     </>
   )
 }

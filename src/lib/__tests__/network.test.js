@@ -112,6 +112,40 @@ describe('buildNetwork — coocorrência', () => {
   })
 })
 
+describe('vínculos mistos e rótulos', () => {
+  const mixed = {
+    ...data,
+    nodeLinks: [
+      { id: 'n1', from: 'c:c1', to: 'q:q1', type: 'exemplifica', label: 'ilustra a condução' }
+    ]
+  }
+
+  it('conecta código a trecho com rótulo próprio', () => {
+    const net = buildNetwork(mixed)
+    const edge = net.edges.find((e) => e.kind === 'nodeLink')
+    expect(edge).toBeTruthy()
+    expect(edge.a).toBe('c:c1')
+    expect(edge.b).toBe('q:q1')
+    expect(edge.label).toBe('ilustra a condução')
+  })
+
+  it('ignora vínculo cujo nó não está na rede', () => {
+    const net = buildNetwork({
+      ...mixed,
+      nodeLinks: [...mixed.nodeLinks, { id: 'n2', from: 'c:c1', to: 'q:inexistente', type: 'associado' }]
+    })
+    expect(net.edges.filter((e) => e.kind === 'nodeLink')).toHaveLength(1)
+  })
+
+  it('desenha o rótulo próprio no SVG e encurta a linha até o nó', () => {
+    const net = buildNetwork(mixed)
+    const nodes = layoutNetwork(net.nodes.map((n) => ({ ...n })), net.edges, { width: 600, height: 400 })
+    const svg = networkSvg(nodes, net.edges, { width: 600, height: 400, title: 'Rede' })
+    expect(svg).toContain('ilustra a condução')
+    expect(svg).toContain('marker-end="url(#arrow-node)"')
+  })
+})
+
 describe('layoutNetwork', () => {
   it('posiciona todos os nós dentro da área e de forma determinística', () => {
     const a = layoutNetwork(

@@ -440,6 +440,8 @@ export default function App () {
             .filter((c) => c.id !== id)
             .map((c) => (c.parentId === id ? { ...c, parentId: parent } : c)),
           excerpts: d.excerpts.filter((e) => e.codeId !== id),
+          codeLinks: (d.codeLinks || []).filter((l) => l.from !== id && l.to !== id),
+          nodeLinks: (d.nodeLinks || []).filter((l) => l.from !== 'c:' + id && l.to !== 'c:' + id),
           memos: cleanMemos(d.memos, d.excerpts.filter((e) => e.codeId !== id)),
           queries: (d.queries || []).map((q) => ({ ...q, codes: (q.codes || []).filter((x) => x !== id) }))
         }
@@ -465,7 +467,17 @@ export default function App () {
       const set = new Set(ids)
       update((d) => {
         const excerpts = d.excerpts.filter((e) => !set.has(e.id))
-        return { ...d, excerpts, memos: cleanMemos(d.memos, excerpts) }
+        const alive = new Set(excerpts.map((e) => String(e.quoteId || e.id)))
+        return {
+          ...d,
+          excerpts,
+          memos: cleanMemos(d.memos, excerpts),
+          quoteLinks: (d.quoteLinks || []).filter((l) => alive.has(l.from) && alive.has(l.to)),
+          nodeLinks: (d.nodeLinks || []).filter((l) => (
+            (!l.from.startsWith('q:') || alive.has(l.from.slice(2))) &&
+            (!l.to.startsWith('q:') || alive.has(l.to.slice(2)))
+          ))
+        }
       })
     },
     moveExcerpt: (excerptId, codeId) => {
@@ -504,7 +516,7 @@ export default function App () {
       update((d) => ({ ...d, excerpts: [...d.excerpts, ex] }))
       return qid
     },
-    addQuoteLink: (fromQuoteId, toQuoteId, type) => {
+    addQuoteLink: (fromQuoteId, toQuoteId, type, label = '') => {
       if (!fromQuoteId || !toQuoteId || fromQuoteId === toQuoteId) return
       update((d) => {
         const exists = (d.quoteLinks || []).some(
@@ -514,15 +526,21 @@ export default function App () {
         return {
           ...d,
           quoteLinks: [...(d.quoteLinks || []), {
-            id: uid(), from: fromQuoteId, to: toQuoteId, type, createdAt: new Date().toISOString()
+            id: uid(), from: fromQuoteId, to: toQuoteId, type, label, createdAt: new Date().toISOString()
           }]
         }
       })
     },
+    updateQuoteLink: (id, patch) => {
+      update((d) => ({
+        ...d,
+        quoteLinks: (d.quoteLinks || []).map((l) => (l.id === id ? { ...l, ...patch } : l))
+      }))
+    },
     removeQuoteLink: (id) => {
       update((d) => ({ ...d, quoteLinks: (d.quoteLinks || []).filter((l) => l.id !== id) }))
     },
-    addCodeLink: (fromCodeId, toCodeId, type) => {
+    addCodeLink: (fromCodeId, toCodeId, type, label = '') => {
       if (!fromCodeId || !toCodeId || fromCodeId === toCodeId) return
       update((d) => {
         const exists = (d.codeLinks || []).some(
@@ -532,13 +550,43 @@ export default function App () {
         return {
           ...d,
           codeLinks: [...(d.codeLinks || []), {
-            id: uid(), from: fromCodeId, to: toCodeId, type, createdAt: new Date().toISOString()
+            id: uid(), from: fromCodeId, to: toCodeId, type, label, createdAt: new Date().toISOString()
           }]
         }
       })
     },
+    updateCodeLink: (id, patch) => {
+      update((d) => ({
+        ...d,
+        codeLinks: (d.codeLinks || []).map((l) => (l.id === id ? { ...l, ...patch } : l))
+      }))
+    },
     removeCodeLink: (id) => {
       update((d) => ({ ...d, codeLinks: (d.codeLinks || []).filter((l) => l.id !== id) }))
+    },
+    addNodeLink: (fromNodeId, toNodeId, type, label = '') => {
+      if (!fromNodeId || !toNodeId || fromNodeId === toNodeId) return
+      update((d) => {
+        const exists = (d.nodeLinks || []).some(
+          (l) => (l.from === fromNodeId && l.to === toNodeId) || (l.from === toNodeId && l.to === fromNodeId)
+        )
+        if (exists) return d
+        return {
+          ...d,
+          nodeLinks: [...(d.nodeLinks || []), {
+            id: uid(), from: fromNodeId, to: toNodeId, type, label, createdAt: new Date().toISOString()
+          }]
+        }
+      })
+    },
+    updateNodeLink: (id, patch) => {
+      update((d) => ({
+        ...d,
+        nodeLinks: (d.nodeLinks || []).map((l) => (l.id === id ? { ...l, ...patch } : l))
+      }))
+    },
+    removeNodeLink: (id) => {
+      update((d) => ({ ...d, nodeLinks: (d.nodeLinks || []).filter((l) => l.id !== id) }))
     },
     setProjectMeta: (patch) => {
       update((d) => ({ ...d, project: { ...d.project, ...patch } }))
@@ -763,6 +811,7 @@ function normalizeData (d) {
   if (!Array.isArray(d.queries)) d.queries = []
   if (!Array.isArray(d.quoteLinks)) d.quoteLinks = []
   if (!Array.isArray(d.codeLinks)) d.codeLinks = []
+  if (!Array.isArray(d.nodeLinks)) d.nodeLinks = []
   return d
 }
 
