@@ -33,20 +33,22 @@ export default function Networks () {
   const svgRef = useRef(null)
   const dragRef = useRef(null)
   const panRef = useRef(null)
-  const [version, setVersion] = useState(0)
+  const [layoutSeed, setLayoutSeed] = useState(0)
+  const [, forceRender] = useState(0)
 
   const network = useMemo(
     () => buildNetwork(data, { showCodes, showQuotes, showDocs, maxQuotes: 240 }),
     [data, showCodes, showQuotes, showDocs]
   )
 
+  // O layout só é recalculado quando os dados, o modo ou o botão Reorganizar mudam.
+  // Arrastar um nó não pode disparar um novo layout — por isso o seed separado.
   const nodes = useMemo(() => {
     const copy = network.nodes.map((n) => ({ ...n }))
     if (mode === 'radial') layoutRadial(copy, network.edges, { width: W, height: H })
     else layoutNetwork(copy, network.edges, { width: W, height: H })
     return copy
-    // version força novo layout ao reorganizar
-  }, [network, mode, version])
+  }, [network, mode, layoutSeed])
 
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
   const neighbours = useMemo(() => {
@@ -117,7 +119,7 @@ export default function Networks () {
       if (node) {
         node.x = Math.max(20, Math.min(W - 20, point.x + dragRef.current.dx))
         node.y = Math.max(20, Math.min(H - 20, point.y + dragRef.current.dy))
-        setVersion((v) => v + 1)
+        forceRender((v) => v + 1)
       }
       return
     }
@@ -140,7 +142,7 @@ export default function Networks () {
 
   const reorganize = () => {
     setSelected(null)
-    setVersion((v) => v + 1)
+    setLayoutSeed((v) => v + 1)
   }
 
   const openSelected = () => {
@@ -203,6 +205,41 @@ export default function Networks () {
     }
   }
 
+  const exportSvg = async () => {
+    if (exporting) return
+    if (!nodes.length) return flash('Não há relações para exportar.')
+    setExporting(true)
+    try {
+      const title = data.project?.name || 'Projeto'
+      const svg = networkSvg(nodes, network.edges, {
+        width: W,
+        height: H,
+        title,
+        subtitle: `Rede de relações · ${new Date().toLocaleDateString('pt-BR')}`,
+        showLabels
+      })
+      const bytes = new TextEncoder().encode(svg)
+      let binary = ''
+      for (const b of bytes) binary += String.fromCharCode(b)
+      const base64 = btoa(binary)
+      const name = 'rede-' + slug(title) + '.svg'
+      if (bridge?.saveBytes) await bridge.saveBytes(name, base64, 'image/svg+xml')
+      else {
+        const a = document.createElement('a')
+        a.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+        a.download = name
+        a.click()
+      }
+      bridge.notify?.('Rede exportada', name)
+      flash('SVG exportado — vetorial, sem perda ao ampliar.')
+    } catch (err) {
+      console.error('Falha ao exportar o SVG', err)
+      flash('Não foi possível gerar o SVG.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const related = selectedNode
     ? [...(neighbours.get(selectedNode.id) || [])].map((id) => byId.get(id)).filter(Boolean)
     : []
@@ -231,6 +268,9 @@ export default function Networks () {
         <h1>Redes</h1>
         <div className="topbar-actions">
           <button className="btn" onClick={reorganize}>Reorganizar</button>
+          <button className="btn" disabled={exporting || !nodes.length} onClick={exportSvg}>
+            SVG
+          </button>
           <button className="btn btn--blue" disabled={exporting || !nodes.length} onClick={exportPng}>
             {exporting ? 'Exportando…' : 'Exportar PNG'}
           </button>
@@ -341,6 +381,13 @@ export default function Networks () {
                               setTimeout(openSelected, 0)
                             }}
                           >
+                            <title>
+                              {n.kind === 'code'
+                                ? `${n.label} — ${n.weight} trecho${n.weight === 1 ? '' : 's'} codificado${n.weight === 1 ? '' : 's'}`
+                                : n.kind === 'quote'
+                                  ? `${n.label}${n.docName ? ` — ${n.docName}` : ''}${n.page ? `, p. ${n.page}` : ''}`
+                                  : n.label}
+                            </title>
                             {n.kind === 'code' && (
                               <circle cx={n.x} cy={n.y} r={r + 2} fill="none" stroke={n.color} strokeOpacity="0.3" strokeWidth="1.4" />
                             )}
