@@ -29,8 +29,8 @@ npm run dev
 ## Build
 
 ```bash
-npm start            # tauri build + abre o .app
-# ou
+npm start            # tauri build (sem artefatos do updater) + abre o .app
+# build assinado, com a chave do updater:
 npx tauri build
 ```
 
@@ -38,6 +38,11 @@ Artefatos:
 
 - `src-tauri/target/release/bundle/macos/Codificando.app`
 - `src-tauri/target/release/bundle/dmg/Codificando_0.2.0_aarch64.dmg`
+
+Assinatura, notarização, atualizações automáticas e instalação local estão em
+[docs/DISTRIBUICAO.md](docs/DISTRIBUICAO.md). Como o app está configurado para
+gerar artefatos do updater, um build local sem a chave privada precisa desligá-los
+com `--config src-tauri/tauri.ci.conf.json` (o `npm start` já faz isso).
 
 ## Testes
 
