@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -20,7 +21,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
@@ -29,33 +30,31 @@ jobs:
 
       - run: npm ci
 
-      - name: Build, assinar e publicar
+      # Sem os segredos de assinatura, o build sai sem assinar. Para assinar e
+      # notarizar, configure APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD,
+      # APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD e APPLE_TEAM_ID nos
+      # segredos do repositório e acrescente o bloco `env` correspondente.
+      - name: Build e publicar
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Assinatura e notarização (opcionais: sem eles o build sai sem assinatura)
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Chave minisign do updater (sem ela, os artefatos de atualização são desligados)
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Codificando ${{ github.ref_name }}
           releaseBody: |
             Codificando ${{ github.ref_name }} — análise qualitativa de dados, 100% local.
 
-            macOS: baixe o `.dmg` e arraste o Codificando para Aplicativos.
-            A atualização automática aparece em Configurações → Verificar atualizações.
+            macOS (Apple Silicon): baixe o `.dmg` e arraste o Codificando para Aplicativos.
+            Windows (x64): baixe o instalador `.msi` ou `.exe`.
+
+            O manual completo está em anexo (`Codificando-manual-0.2.0.pdf`).
+            Os instaladores não são assinados: no macOS, abra com botão direito → Abrir;
+            no Windows, use "Mais informações → Executar assim mesmo" se o SmartScreen avisar.
           releaseDraft: true
           prerelease: false
           args: >-
             --target aarch64-apple-darwin
-            ${{ secrets.TAURI_SIGNING_PRIVATE_KEY == '' && '--config src-tauri/tauri.ci.conf.json' || '' }}
+            --config src-tauri/tauri.ci.conf.json
 
   windows:
     name: Windows (x64)
@@ -65,7 +64,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
@@ -76,17 +75,19 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Codificando ${{ github.ref_name }}
           releaseBody: |
             Codificando ${{ github.ref_name }} — análise qualitativa de dados, 100% local.
 
-            Windows: baixe o instalador `.msi` ou `.exe`.
-            A atualização automática aparece em Configurações → Verificar atualizações.
+            macOS (Apple Silicon): baixe o `.dmg` e arraste o Codificando para Aplicativos.
+            Windows (x64): baixe o instalador `.msi` ou `.exe`.
+
+            O manual completo está em anexo (`Codificando-manual-0.2.0.pdf`).
+            Os instaladores não são assinados: no macOS, abra com botão direito → Abrir;
+            no Windows, use "Mais informações → Executar assim mesmo" se o SmartScreen avisar.
           releaseDraft: true
           prerelease: false
           args: >-
-            ${{ secrets.TAURI_SIGNING_PRIVATE_KEY == '' && '--config src-tauri/tauri.ci.conf.json' || '' }}
+            --config src-tauri/tauri.ci.conf.json

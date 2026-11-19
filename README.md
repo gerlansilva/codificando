@@ -9,9 +9,9 @@ e o mesmo formato de dados do aplicativo anterior.
 
 ## Requisitos
 
-- macOS 11+
-- Node.js 20+
-- Rust (stable) e Xcode Command Line Tools
+- macOS 11+ ou Windows 10/11 (x64)
+- Node.js 22.22+ (recomendado 24 LTS)
+- Rust (stable); no macOS, Xcode Command Line Tools
 
 ## Desenvolvimento
 

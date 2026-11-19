@@ -4,6 +4,9 @@
   "version": "0.2.0",
   "description": "Codificando — análise qualitativa de dados. App desktop em Tauri.",
   "private": true,
+  "engines": {
+    "node": ">=22.22.2"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
