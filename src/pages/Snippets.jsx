@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { useData, navigate } from '../App.jsx'
 import { quoteToText, copyText } from '../lib/clipboard.js'
 import ContextMenu from '../components/ContextMenu.jsx'
+import RelationModal, { QUOTE_RELATIONS } from '../components/RelationModal.jsx'
 import Toast from '../components/Toast.jsx'
 import { uid } from '../data/store.js'
 
@@ -10,7 +11,7 @@ import { uid } from '../data/store.js'
  * códigos e texto. Ações ficam no botão direito — nada de cartões gigantes.
  */
 export default function Snippets () {
-  const { data, update, undo, removeExcerpts, saveMemo } = useData()
+  const { data, update, undo, removeExcerpts, saveMemo, addQuoteLink, removeQuoteLink } = useData()
   const [activeCode, setActiveCode] = useState('all')
   const [activeDoc, setActiveDoc] = useState('all')
   const [query, setQuery] = useState('')
@@ -22,6 +23,7 @@ export default function Snippets () {
   const [batchQuery, setBatchQuery] = useState('')
   const [batchComment, setBatchComment] = useState('')
   const [toast, setToast] = useState(null)
+  const [linkPair, setLinkPair] = useState(null)
 
   const quotes = useMemo(() => {
     const map = new Map()
@@ -206,6 +208,22 @@ export default function Snippets () {
                   </span>
                   <button className="batch-btn" onClick={() => setBatch('code')}>Codificar com…</button>
                   <button className="batch-btn" onClick={() => setBatch('move')}>Mover para…</button>
+                  {selected.size >= 2 && (
+                    <button
+                      className="batch-btn"
+                      onClick={() => {
+                        const ids = [...selected]
+                        setLinkPair({
+                          fromId: ids[0],
+                          toId: ids[1],
+                          fromText: quotes.find((q) => q.id === ids[0])?.text || '',
+                          toText: quotes.find((q) => q.id === ids[1])?.text || ''
+                        })
+                      }}
+                    >
+                      Relacionar…
+                    </button>
+                  )}
                   <button className="batch-btn" onClick={() => setBatch('comment')}>Comentar…</button>
                   <button className="batch-btn batch-danger" onClick={batchRemove}>Excluir</button>
                   <button className="batch-btn batch-clear" onClick={() => setSelected(new Set())}>Limpar</button>
@@ -375,6 +393,21 @@ export default function Snippets () {
           </div>
         )}
 
+        {linkPair && (
+          <RelationModal
+            title="Relacionar trechos"
+            from={shortQuote(linkPair.fromText)}
+            relations={QUOTE_RELATIONS}
+            items={[]}
+            fixedTarget={{ id: linkPair.toId, name: shortQuote(linkPair.toText) }}
+            onSave={(type, targetId) => {
+              addQuoteLink(linkPair.fromId, targetId, type)
+              setSelected(new Set())
+            }}
+            onClose={() => setLinkPair(null)}
+          />
+        )}
+
         {ctx && (
           <ContextMenu
             x={ctx.x}
@@ -421,4 +454,11 @@ export default function Snippets () {
 
 function commentOf (data, quoteId) {
   return (data.memos || []).find((m) => m.quoteId === quoteId && m.kind === 'comment')?.text || ''
+}
+
+
+/** Primeiros caracteres de um trecho, em uma linha. */
+function shortQuote (text) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim()
+  return clean.length > 64 ? clean.slice(0, 63).trimEnd() + '…' : clean
 }

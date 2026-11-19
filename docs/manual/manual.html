@@ -349,12 +349,13 @@
     <li><span class="n">8</span><span class="t">Comentários</span><span class="d">11</span></li>
     <li><span class="n">9</span><span class="t">Consultas</span><span class="d">12</span></li>
     <li><span class="n">10</span><span class="t">Relatórios e exportação</span><span class="d">13</span></li>
-    <li><span class="n">11</span><span class="t">Busca</span><span class="d">14</span></li>
-    <li><span class="n">12</span><span class="t">Configurações, dados e backups</span><span class="d">15</span></li>
-    <li><span class="n">13</span><span class="t">Proteção por senha</span><span class="d">16</span></li>
-    <li><span class="n">14</span><span class="t">Atalhos de teclado</span><span class="d">17</span></li>
-    <li><span class="n">15</span><span class="t">Privacidade e onde ficam os dados</span><span class="d">17</span></li>
-    <li><span class="n">16</span><span class="t">Problemas comuns</span><span class="d">18</span></li>
+    <li><span class="n">11</span><span class="t">Redes de relações</span><span class="d">14</span></li>
+    <li><span class="n">12</span><span class="t">Busca</span><span class="d">16</span></li>
+    <li><span class="n">13</span><span class="t">Configurações, dados e backups</span><span class="d">17</span></li>
+    <li><span class="n">14</span><span class="t">Proteção por senha</span><span class="d">18</span></li>
+    <li><span class="n">15</span><span class="t">Atalhos de teclado</span><span class="d">19</span></li>
+    <li><span class="n">16</span><span class="t">Privacidade e onde ficam os dados</span><span class="d">19</span></li>
+    <li><span class="n">17</span><span class="t">Problemas comuns</span><span class="d">20</span></li>
   </ul>
 
 
@@ -428,6 +429,7 @@
     <li><strong>Trechos</strong> — todos os trechos codificados, com filtros.</li>
     <li><strong>Consultas</strong> — filtros combinados e consultas salvas.</li>
     <li><strong>Comentários</strong> — todos os comentários analíticos do projeto.</li>
+    <li><strong>Redes</strong> — mapa visual de códigos, trechos e documentos.</li>
     <li><strong>Relatórios</strong> — números do projeto e exportações.</li>
   </ul>
 
@@ -495,7 +497,7 @@
     A cada gravação bem-sucedida, o aplicativo guarda uma cópia do arquivo em
     <code>~/Library/Application Support/Investigando/backups/</code>, em uma subpasta por projeto.
     São no máximo 20 cópias por projeto, com no máximo uma por minuto — as mais antigas são
-    descartadas automaticamente. O capítulo 12 explica como listar e restaurar.
+    descartadas automaticamente. O capítulo 13 explica como listar e restaurar.
   </p>
 </section>
 
@@ -771,9 +773,64 @@
   </div>
 </section>
 
+<!-- ============ 11 REDES ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 11</span>Redes de relações</h2>
+  <p class="lead">A rede mostra, em uma só figura, como documentos, trechos e códigos se conectam no seu material.</p>
+
+  <figure>
+    <img src="capturas/networks.png" alt="Rede de relações com códigos e trechos">
+    <figcaption><b>Redes.</b> Cada círculo é um nó; cada linha é uma relação. Ao clicar em um código, o painel da direita lista os trechos conectados e os vínculos que você criou.</figcaption>
+  </figure>
+  </div>
+
+  <h3>O que aparece na rede</h3>
+  <ul>
+    <li><strong>Códigos</strong> — o tamanho do círculo cresce com o número de trechos codificados. Códigos-filho aparecem ligados ao código-pai por uma linha tracejada.</li>
+    <li><strong>Trechos</strong> — pontos pequenos, na cor do código. Cada trecho se liga aos códigos que o marcam.</li>
+    <li><strong>Documentos</strong> — opcionais. Quando exibidos, cada trecho se liga também ao documento de origem.</li>
+  </ul>
+  <p>
+    A linha fina indica codificação. O tracejado longo indica hierarquia do codebook. O tracejado
+    curto indica um vínculo nomeado, criado por você: <em>associado a</em>, <em>é parte de</em>,
+    <em>contradiz</em>, <em>explica</em>, <em>precede</em>, <em>exemplifica</em> ou <em>retoma</em>.
+  </p>
+
+  <h3>Criar vínculos</h3>
+  <ol class="steps">
+    <li>Em <strong>Códigos</strong>, selecione um código e, na seção <strong>Relações</strong>, clique em <strong>+ Relacionar</strong>. Escolha o tipo e o código de destino.</li>
+    <li>Em <strong>Trechos</strong>, marque exatamente dois trechos e clique em <strong>Relacionar…</strong> na barra de seleção.</li>
+    <li>Para remover, use o <strong>×</strong> ao lado do vínculo, no codebook ou no painel da rede.</li>
+  </ol>
+
+  <h3>Navegar e ajustar</h3>
+  <p>
+    Use os filtros do alto para mostrar ou esconder códigos, trechos, documentos e rótulos.
+    O seletor <strong>Layout</strong> alterna entre <strong>Força</strong> (os nós se acomodam pelas
+    conexões) e <strong>Radial</strong> (códigos no centro, trechos em anéis). Arraste um nó para
+    reposicioná-lo, arraste o fundo para navegar e use a roda do mouse ou os botões
+    <strong>+</strong> e <strong>−</strong> para aproximar. Um clique seleciona e destaca as
+    relações; duplo clique abre o documento, o trecho ou os códigos correspondentes.
+  </p>
+
+  <h3>Exportar como figura</h3>
+  <p>
+    <strong>Exportar PNG</strong> gera uma imagem de 3000 × 2100 pixels, com o nome do projeto,
+    a data, a contagem de nós e uma legenda. O desenho é determinístico: o mesmo projeto, com o
+    mesmo layout, produz a mesma figura em qualquer exportação — útil para comparar versões ou
+    reproduzir uma figura no artigo. A imagem é salva onde você indicar, sem passar pela rede.
+  </p>
+
+  <div class="tip">
+    <b>Para o artigo.</b> Exporte com <strong>Documentos</strong> desligado quando quiser destacar
+    a estrutura analítica (códigos e trechos). Ligue <strong>Documentos</strong> quando a figura
+    precisar mostrar a distribuição das evidências entre as fontes.
+  </div>
+</section>
+
 <!-- ============ 11 BUSCA ============ -->
 <section class="section">
-  <div class="chapter-open"><h2><span class="num">CAPÍTULO 11</span>Busca</h2>
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 12</span>Busca</h2>
   <p class="lead">A busca varre todos os documentos e códigos do projeto e mostra o trecho ao redor de cada ocorrência.</p>
 
   <figure>
@@ -798,7 +855,7 @@
 
 <!-- ============ 12 CONFIGURAÇÕES ============ -->
 <section class="section">
-  <div class="chapter-open"><h2><span class="num">CAPÍTULO 12</span>Configurações, dados e backups</h2>
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 13</span>Configurações, dados e backups</h2>
   <p class="lead">As configurações reúnem a identidade do projeto, o caminho dos dados, a proteção por senha, os backups e a verificação de atualizações.</p>
 
   <figure>
@@ -840,7 +897,7 @@
 
 <!-- ============ 13 SENHA ============ -->
 <section class="section">
-  <div class="chapter-open"><h2><span class="num">CAPÍTULO 13</span>Proteção por senha</h2>
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 14</span>Proteção por senha</h2>
   <p class="lead">Projetos com material sensível podem ser gravados cifrados. O arquivo continua sendo um JSON válido, mas o conteúdo só é legível com a senha.</p>
 
   
@@ -882,7 +939,7 @@
 <!-- ============ 14 ATALHOS ============ -->
 <section class="section">
   <div class="keep">
-  <div class="chapter-open"><h2><span class="num">CAPÍTULO 14</span>Atalhos de teclado</h2>
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 15</span>Atalhos de teclado</h2>
   <p class="lead">Poucos atalhos, mas os que existem evitam idas e voltas com o mouse.</p>
 
   
@@ -891,7 +948,7 @@
     <tbody><tr><td><kbd>⌘</kbd><kbd>B</kbd></td><td>Recolher ou reabrir a barra lateral</td><td>Todo o aplicativo</td></tr><tr><td><kbd>⌘</kbd> <kbd>\\</kbd></td><td>Mesma ação do anterior</td><td>Todo o aplicativo</td></tr><tr><td><kbd>⌘</kbd><kbd>F</kbd></td><td>Abrir a busca global</td><td>Todo o aplicativo</td></tr><tr><td><kbd>⌘</kbd><kbd>Z</kbd></td><td>Desfazer a última alteração</td><td>Todo o aplicativo</td></tr><tr><td><kbd>⇧</kbd><kbd>⌘</kbd><kbd>Z</kbd></td><td>Refazer</td><td>Todo o aplicativo</td></tr><tr><td><kbd>⌘</kbd><kbd>G</kbd></td><td>Próxima ocorrência da busca no documento</td><td>Editor</td></tr><tr><td><kbd>⌘</kbd><kbd>Enter</kbd></td><td>Aplicar o último código à seleção</td><td>Editor</td></tr><tr><td><kbd>Esc</kbd></td><td>Fechar menus, limpar busca, cancelar seleção</td><td>Editor e diálogos</td></tr></tbody>
   </table>
 
-  <h2 style="margin-top: 12mm"><span class="num">CAPÍTULO 15</span>Privacidade e onde ficam os dados</h2>
+  <h2 style="margin-top: 12mm"><span class="num">CAPÍTULO 16</span>Privacidade e onde ficam os dados</h2>
   <p class="lead">O Codificando não tem servidor. Nada do que você importa ou escreve sai do computador.</p>
 
   <ul>
@@ -910,7 +967,7 @@
 
 <!-- ============ 16 PROBLEMAS ============ -->
 <section class="section">
-  <div class="chapter-open"><h2><span class="num">CAPÍTULO 16</span>Problemas comuns</h2>
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 17</span>Problemas comuns</h2>
   <p class="lead">As situações abaixo cobrem a maior parte dos relatos de suporte.</p>
 
   

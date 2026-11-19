@@ -10,6 +10,7 @@ const NAV = [
   { key: 'snippets', label: 'Trechos', path: 'snippets', icon: 'snippets' },
   { key: 'consultas', label: 'Consultas', path: 'consultas', icon: 'search' },
   { key: 'comments', label: 'Comentários', path: 'comments', icon: 'comments' },
+  { key: 'networks', label: 'Redes', path: 'networks', icon: 'network' },
   { key: 'reports', label: 'Relatórios', path: 'reports', icon: 'reports' }
 ]
 

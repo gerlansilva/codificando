@@ -10,6 +10,7 @@ import Editor from './pages/Editor.jsx'
 import Codebook from './pages/Codebook.jsx'
 import Snippets from './pages/Snippets.jsx'
 import Reports from './pages/Reports.jsx'
+import Networks from './pages/Networks.jsx'
 import Search from './pages/Search.jsx'
 import Comments from './pages/Comments.jsx'
 import Settings from './pages/Settings.jsx'
@@ -22,7 +23,7 @@ import PasswordModal from './components/PasswordModal.jsx'
 const DataContext = createContext(null)
 export const useData = () => useContext(DataContext)
 
-const ROUTES = ['transcripts', 'new', 'codes', 'snippets', 'comments', 'consultas', 'reports', 'search', 'settings', 'home', 'print']
+const ROUTES = ['transcripts', 'new', 'codes', 'snippets', 'comments', 'consultas', 'reports', 'networks', 'search', 'settings', 'home', 'print']
 
 function parseHash () {
   const raw = window.location.hash.replace(/^#\/?/, '')
@@ -718,6 +719,7 @@ export default function App () {
           {route.name === 'settings' && <Settings />}
           {route.name === 'consultas' && <Consultas />}
           {route.name === 'reports' && <Reports />}
+          {route.name === 'networks' && <Networks />}
           {route.name === 'search' && <Search />}
           {route.name === 'print' && transcript && <Print transcript={transcript} />}
         </div>

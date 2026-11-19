@@ -1,0 +1,159 @@
+import { describe, expect, it } from 'vitest'
+import {
+  buildNetwork,
+  edgeStyle,
+  layoutNetwork,
+  layoutRadial,
+  networkSvg,
+  nodeRadius
+} from '../network.js'
+
+const data = {
+  project: { name: 'Práticas de leitura' },
+  codes: [
+    { id: 'c1', name: 'Mediação docente', color: '#4A90E2' },
+    { id: 'c2', name: 'Escuta do erro', color: '#7BB661', parentId: 'c1' },
+    { id: 'c3', name: 'Sem trechos', color: '#C9A227' }
+  ],
+  transcripts: [{ id: 't1', name: 'Entrevista 01' }],
+  excerpts: [
+    { id: 'e1', quoteId: 'q1', codeId: 'c1', transcriptId: 't1', text: 'A professora retoma a fala.', page: 3 },
+    { id: 'e2', quoteId: 'q1', codeId: 'c2', transcriptId: 't1', text: 'A professora retoma a fala.', page: 3 },
+    { id: 'e3', quoteId: 'q2', codeId: 'c2', transcriptId: 't1', text: 'O erro virou conteúdo.', page: 4 }
+  ],
+  quoteLinks: [{ id: 'ql1', from: 'q1', to: 'q2', type: 'contradiz' }],
+  codeLinks: [{ id: 'cl1', from: 'c1', to: 'c3', type: 'associado' }]
+}
+
+describe('buildNetwork', () => {
+  it('cria nós de códigos e trechos com as arestas de codificação', () => {
+    const net = buildNetwork(data)
+    expect(net.nodes.filter((n) => n.kind === 'code')).toHaveLength(3)
+    expect(net.nodes.filter((n) => n.kind === 'quote')).toHaveLength(2)
+    expect(net.edges.filter((e) => e.kind === 'codes')).toHaveLength(3)
+    expect(net.stats).toMatchObject({ codes: 3, quotes: 2, docs: 0 })
+  })
+
+  it('inclui hierarquia, vínculo entre códigos e vínculo entre trechos', () => {
+    const net = buildNetwork(data)
+    expect(net.edges.some((e) => e.kind === 'hierarchy')).toBe(true)
+    expect(net.edges.some((e) => e.kind === 'codeLink' && e.type === 'associado')).toBe(true)
+    expect(net.edges.some((e) => e.kind === 'quoteLink' && e.type === 'contradiz')).toBe(true)
+  })
+
+  it('respeita os filtros de exibição', () => {
+    const onlyCodes = buildNetwork(data, { showQuotes: false })
+    expect(onlyCodes.nodes.every((n) => n.kind === 'code')).toBe(true)
+    expect(onlyCodes.edges.some((e) => e.kind === 'codes')).toBe(false)
+
+    const withDocs = buildNetwork(data, { showDocs: true })
+    expect(withDocs.stats.docs).toBe(1)
+    expect(withDocs.edges.filter((e) => e.kind === 'inDoc')).toHaveLength(3)
+  })
+
+  it('ignora referências órfãs sem quebrar', () => {
+    const net = buildNetwork({
+      ...data,
+      excerpts: [...data.excerpts, { id: 'e9', codeId: 'inexistente', transcriptId: 't9', text: 'x' }],
+      quoteLinks: [{ id: 'ql9', from: 'q1', to: 'q404' }],
+      codeLinks: [{ id: 'cl9', from: 'c1', to: 'c404' }]
+    })
+    expect(net.edges.some((e) => e.b === 'c:inexistente')).toBe(false)
+    expect(net.edges.some((e) => e.id === 'ql:ql9')).toBe(false)
+    expect(net.edges.some((e) => e.id === 'cl:cl9')).toBe(false)
+  })
+
+  it('remove nós isolados quando minDegree é maior que 1', () => {
+    const net = buildNetwork(data, { minDegree: 2 })
+    expect(net.nodes.some((n) => n.id === 'c:c3')).toBe(false)
+  })
+
+  it('lida com projeto vazio', () => {
+    const net = buildNetwork({})
+    expect(net.nodes).toEqual([])
+    expect(net.edges).toEqual([])
+    expect(net.stats).toEqual({ codes: 0, quotes: 0, docs: 0, links: 0 })
+  })
+})
+
+describe('layoutNetwork', () => {
+  it('posiciona todos os nós dentro da área e de forma determinística', () => {
+    const a = layoutNetwork(
+      buildNetwork(data).nodes.map((n) => ({ ...n })),
+      buildNetwork(data).edges,
+      { width: 800, height: 600, padding: 40 }
+    )
+    const b = layoutNetwork(
+      buildNetwork(data).nodes.map((n) => ({ ...n })),
+      buildNetwork(data).edges,
+      { width: 800, height: 600, padding: 40 }
+    )
+    for (const n of a) {
+      expect(n.x).toBeGreaterThanOrEqual(40)
+      expect(n.x).toBeLessThanOrEqual(760)
+      expect(n.y).toBeGreaterThanOrEqual(40)
+      expect(n.y).toBeLessThanOrEqual(560)
+    }
+    expect(a.map((n) => [n.id, Math.round(n.x), Math.round(n.y)])).toEqual(
+      b.map((n) => [n.id, Math.round(n.x), Math.round(n.y)])
+    )
+  })
+})
+
+describe('layoutRadial', () => {
+  it('coloca códigos perto do centro e trechos em anel externo', () => {
+    const net = buildNetwork(data)
+    const nodes = layoutRadial(net.nodes.map((n) => ({ ...n })), net.edges, { width: 1000, height: 700 })
+    const center = { x: 500, y: 350 }
+    const dist = (n) => Math.hypot(n.x - center.x, n.y - center.y)
+    const codeAvg = nodes.filter((n) => n.kind === 'code').reduce((s, n) => s + dist(n), 0) / 3
+    const quoteAvg = nodes.filter((n) => n.kind === 'quote').reduce((s, n) => s + dist(n), 0) / 2
+    expect(codeAvg).toBeLessThan(quoteAvg)
+  })
+})
+
+describe('networkSvg', () => {
+  const net = buildNetwork(data)
+  const nodes = layoutNetwork(net.nodes.map((n) => ({ ...n })), net.edges, { width: 600, height: 400 })
+
+  it('gera SVG autocontido com título e legenda', () => {
+    const svg = networkSvg(nodes, net.edges, { width: 600, height: 400, title: 'Rede & afins', subtitle: '2026' })
+    expect(svg.startsWith('<svg')).toBe(true)
+    expect(svg).toContain('xmlns="http://www.w3.org/2000/svg"')
+    expect(svg).toContain('Rede &amp; afins')
+    expect(svg).toContain('3 códigos · 2 trechos')
+    expect(svg.match(/<circle/g).length).toBeGreaterThanOrEqual(5)
+  })
+
+  it('aplica a escala de exportação sem alterar o viewBox', () => {
+    const svg = networkSvg(nodes, net.edges, { width: 600, height: 400, scale: 3 })
+    expect(svg).toContain('width="1800" height="1200"')
+    expect(svg).toContain('viewBox="0 0 600 400"')
+  })
+
+  it('escapa rótulos e respeita showLabels', () => {
+    const alt = buildNetwork({ ...data, codes: [{ id: 'c1', name: '<script>x</script>', color: '#000' }] })
+    const altNodes = layoutNetwork(alt.nodes.map((n) => ({ ...n })), alt.edges, { width: 400, height: 300 })
+    const svg = networkSvg(altNodes, alt.edges, { width: 400, height: 300 })
+    expect(svg).not.toContain('<script>')
+    expect(svg).toContain('&lt;script&gt;')
+    const noLabels = networkSvg(nodes, net.edges, { width: 600, height: 400, showLabels: false })
+    expect(noLabels).not.toContain('Mediação docente')
+    const withLabels = networkSvg(nodes, net.edges, { width: 600, height: 400 })
+    expect(withLabels).toContain('Mediação docente')
+  })
+})
+
+describe('estilos', () => {
+  it('dá raio maior a nós mais conectados', () => {
+    expect(nodeRadius({ kind: 'quote' })).toBe(4)
+    expect(nodeRadius({ kind: 'code', weight: 9 })).toBeGreaterThan(nodeRadius({ kind: 'code', weight: 1 }))
+    expect(nodeRadius({ kind: 'doc', weight: 16 })).toBeGreaterThan(nodeRadius({ kind: 'doc', weight: 0 }))
+  })
+
+  it('distingue traço de hierarquia e de vínculo', () => {
+    expect(edgeStyle({ kind: 'hierarchy' }).dash).toBeTruthy()
+    expect(edgeStyle({ kind: 'quoteLink' }).color).not.toBe(edgeStyle({ kind: 'codes' }).color)
+    expect(edgeStyle({ kind: 'desconhecido' })).toEqual(edgeStyle({ kind: 'codes' }))
+  })
+})

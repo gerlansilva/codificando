@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useData, navigate } from '../App.jsx'
 import CodeModal from '../components/CodeModal.jsx'
+import RelationModal, { CODE_RELATIONS, relationLabel } from '../components/RelationModal.jsx'
 import { flattenTree, codeStats, CODE_COLORS } from '../lib/codes.js'
 
 export default function Codebook () {
-  const { data, mergeCodes, deleteCode, moveExcerpt, removeExcerpt, moveExcerpts, removeExcerpts, createCode, updateCode, moveCode } = useData()
+  const { data, mergeCodes, deleteCode, moveExcerpt, removeExcerpt, moveExcerpts, removeExcerpts, createCode, updateCode, moveCode, addCodeLink, removeCodeLink } = useData()
   const [selectedId, setSelectedId] = useState(null)
   const [dragId, setDragId] = useState(null)
   const [dropHint, setDropHint] = useState(null)
@@ -14,6 +15,7 @@ export default function Codebook () {
   const [renameValue, setRenameValue] = useState('')
   const [manageCode, setManageCode] = useState(null)
   const [picked, setPicked] = useState(() => new Set())
+  const [linkOpen, setLinkOpen] = useState(false)
   const [splitOpen, setSplitOpen] = useState(false)
   const [splitName, setSplitName] = useState('')
   const [collapsed, setCollapsed] = useState(() => {
@@ -52,6 +54,17 @@ export default function Codebook () {
   )
   const stats = useMemo(() => codeStats(data.codes, data.excerpts), [data.codes, data.excerpts])
   const selected = data.codes.find((c) => c.id === selectedId) || null
+  const relatedLinks = selected
+    ? (data.codeLinks || [])
+        .filter((l) => l.from === selected.id || l.to === selected.id)
+        .map((l) => {
+          const outgoing = l.from === selected.id
+          const other = data.codes.find((c) => c.id === (outgoing ? l.to : l.from))
+          return other ? { link: l, other, outgoing } : null
+        })
+        .filter(Boolean)
+    : []
+
   const selectedExcerpts = selected ? data.excerpts.filter((e) => e.codeId === selected.id) : []
 
   // co-ocorrência: códigos aplicados às mesmas citações
@@ -243,6 +256,50 @@ export default function Codebook () {
                     onSave={(value) => updateCode(selected.id, { description: value })}
                   />
 
+                  <div className="code-relations">
+                    <div className="code-relations-head">
+                      <span className="cooccur-label">Relações</span>
+                      <button className="btn--link" onClick={() => setLinkOpen(true)}>
+                        + Relacionar
+                      </button>
+                    </div>
+                    {relatedLinks.length === 0
+                      ? (
+                        <p className="code-relations-empty">
+                          Nenhuma relação ainda. Ligue este código a outro para vê-los juntos na rede.
+                        </p>
+                        )
+                      : (
+                        <ul className="code-relations-list">
+                          {relatedLinks.map(({ link, other, outgoing }) => (
+                            <li key={link.id}>
+                              <span className="code-dot" style={{ background: other.color }} />
+                              <span className="relation-kind">
+                                {outgoing ? relationLabel(link.type, CODE_RELATIONS) : 'recebe relação'}
+                              </span>
+                              <button
+                                className="relation-target"
+                                onClick={() => setSelectedId(other.id)}
+                                title={`Ver ${other.name}`}
+                              >
+                                {other.name}
+                              </button>
+                              <button
+                                className="relation-remove"
+                                title="Remover relação"
+                                onClick={() => removeCodeLink(link.id)}
+                              >
+                                ×
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                        )}
+                    <button className="btn--link code-relations-network" onClick={() => navigate('/networks')}>
+                      Ver na rede →
+                    </button>
+                  </div>
+
                   {cooccurrence.length > 0 && (
                     <div className="cooccur">
                       <span className="cooccur-label">Aparece junto com</span>
@@ -403,6 +460,19 @@ export default function Codebook () {
             </div>
           </div>
         </div>
+      )}
+
+      {linkOpen && selected && (
+        <RelationModal
+          title="Relacionar código"
+          from={selected.name}
+          relations={CODE_RELATIONS}
+          items={data.codes
+            .filter((c) => c.id !== selected.id)
+            .map((c) => ({ id: c.id, name: c.name, color: c.color, meta: c.parentId ? 'subcódigo' : null }))}
+          onSave={(type, targetId) => addCodeLink(selected.id, targetId, type)}
+          onClose={() => setLinkOpen(false)}
+        />
       )}
 
       {manageCode && (
