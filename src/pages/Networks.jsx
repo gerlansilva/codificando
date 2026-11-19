@@ -41,7 +41,7 @@ const CREATE_RELATIONS = [
 ]
 
 const W = 1000
-const H = 700
+const H = 1000
 
 const KIND_LABEL = { code: 'Código', quote: 'Trecho', doc: 'Documento' }
 
@@ -248,7 +248,7 @@ export default function Networks () {
         a.click()
       }
       bridge.notify?.('Rede exportada', `${name} · ${W * 3} × ${H * 3} px`)
-      flash('Imagem exportada em PNG (3000 × 2100 px).')
+      flash('Imagem exportada em PNG (3000 × 3000 px).')
     } catch (err) {
       console.error('Falha ao exportar a rede', err)
       flash('Não foi possível gerar a imagem.')

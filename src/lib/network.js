@@ -318,8 +318,8 @@ export function sizeNodes (nodes, opts = {}) {
         continue
       }
       const full = quotes === 'text'
-      const font = (full ? 10 : 9.5) * scale
-      const perLine = full ? 46 : 32
+      const font = (full ? 9.5 : 9.5) * Math.min(scale, 1.12)
+      const perLine = full ? 30 : 28
       const maxLines = full ? 4 : 1
       const lines = wrapLines(n.text || n.label || '', perLine, maxLines)
       const longest = lines.reduce((m, l) => Math.max(m, l.length), 0)
@@ -369,9 +369,11 @@ function nodeHalf (node) {
  * Determinístico: roda sempre na mesma ordem, sem aleatoriedade.
  */
 export function resolveOverlaps (nodes, opts = {}) {
-  const { gap = 12, passes = 80, width = 0, height = 0, margin = 12 } = opts
+  const { gap = 12, passes = 120, width = 0, height = 0, margin = 12, pinned = null } = opts
+  const shift = new Map(nodes.map((n) => [n.id, { x: 0, y: 0 }]))
   for (let p = 0; p < passes; p++) {
     let moved = false
+    for (const s of shift.values()) { s.x = 0; s.y = 0 }
     for (let i = 0; i < nodes.length; i++) {
       const a = nodes[i]
       const ha = nodeHalf(a)
@@ -385,26 +387,40 @@ export function resolveOverlaps (nodes, opts = {}) {
         if (Math.abs(dx) >= minX || Math.abs(dy) >= minY) continue
         const ox = minX - Math.abs(dx)
         const oy = minY - Math.abs(dy)
+        const aFixed = pinned?.has(a.id)
+        const bFixed = pinned?.has(b.id)
+        if (aFixed && bFixed) continue
+        const wa = aFixed ? 0 : bFixed ? 1 : 0.5
+        const wb = bFixed ? 0 : aFixed ? 1 : 0.5
+        moved = true
         if (ox < oy) {
           const s = dx >= 0 ? 1 : -1
-          a.x -= (ox / 2) * s
-          b.x += (ox / 2) * s
+          shift.get(a.id).x -= ox * wa * s
+          shift.get(b.id).x += ox * wb * s
         } else {
           const s = dy >= 0 ? 1 : -1
-          a.y -= (oy / 2) * s
-          b.y += (oy / 2) * s
+          shift.get(a.id).y -= oy * wa * s
+          shift.get(b.id).y += oy * wb * s
         }
-        moved = true
-      }
-    }
-    if (width && height) {
-      for (const node of nodes) {
-        const { hw, hh } = nodeHalf(node)
-        node.x = Math.max(margin + hw, Math.min(width - margin - hw, node.x))
-        node.y = Math.max(margin + hh, Math.min(height - margin - hh, node.y))
       }
     }
     if (!moved) break
+    // Aplica só parte do deslocamento: tudo de uma vez faz os nós oscilarem.
+    const relax = 0.55
+    for (const node of nodes) {
+      if (pinned?.has(node.id)) continue
+      const s = shift.get(node.id)
+      if (!s.x && !s.y) continue
+      const { hw, hh } = nodeHalf(node)
+      let nx = node.x + s.x * relax
+      let ny = node.y + s.y * relax
+      if (width && height) {
+        nx = Math.max(margin + hw, Math.min(width - margin - hw, nx))
+        ny = Math.max(margin + hh, Math.min(height - margin - hh, ny))
+      }
+      node.x = nx
+      node.y = ny
+    }
   }
   return nodes
 }
@@ -566,18 +582,66 @@ const ARROW_ID = {
   nodeLink: 'arrow-node'
 }
 
-/** Posições iniciais em espiral (determinísticas). */
-function seedPositions (nodes, width, height) {
+/**
+ * Posições iniciais determinísticas.
+ * Com códigos na rede, cada código ocupa um lugar na elipse central e os
+ * trechos nascem ao redor do código que os marca — a força apenas acomoda
+ * as distâncias, em vez de espalhar tudo sem estrutura.
+ */
+function seedPositions (nodes, edges, width, height) {
   const cx = width / 2
   const cy = height / 2
+  const codes = nodes
+    .filter((n) => n.kind === 'code')
+    .sort((a, b) => (b.weight || 0) - (a.weight || 0) || String(a.label).localeCompare(String(b.label)))
+  const quotes = nodes.filter((n) => n.kind === 'quote')
+  const docs = nodes.filter((n) => n.kind === 'doc')
+
+  for (const n of nodes) { n.vx = 0; n.vy = 0 }
+
+  if (codes.length >= 2 && quotes.length) {
+    const rx = width * 0.29
+    const ry = height * 0.27
+    codes.forEach((n, i) => {
+      const a = (i / codes.length) * Math.PI * 2 - Math.PI / 2
+      n.x = cx + Math.cos(a) * rx
+      n.y = cy + Math.sin(a) * ry
+    })
+    const byId = new Map(codes.map((n) => [n.id, n]))
+    const anchor = new Map()
+    for (const e of edges) {
+      if (e.kind !== 'codes') continue
+      const code = e.a.startsWith('c:') ? e.a : e.b.startsWith('c:') ? e.b : null
+      const quote = e.a.startsWith('q:') ? e.a : e.b.startsWith('q:') ? e.b : null
+      if (code && quote && byId.has(code) && !anchor.has(quote)) anchor.set(quote, byId.get(code))
+    }
+    const perCode = new Map()
+    for (const q of quotes) {
+      const code = anchor.get(q.id)
+      const idx = code ? (perCode.get(code.id) || 0) : 0
+      if (code) perCode.set(code.id, idx + 1)
+      const ring = Math.floor(idx / 8)
+      const radius = 108 + ring * 74
+      const angle = idx * GOLDEN + (code ? 0.4 : 0)
+      const baseX = code ? code.x : cx
+      const baseY = code ? code.y : cy
+      q.x = baseX + Math.cos(angle) * radius
+      q.y = baseY + Math.sin(angle) * radius * 0.82
+    }
+    docs.forEach((n, i) => {
+      const a = (i / Math.max(1, docs.length)) * Math.PI * 2 + Math.PI / 9
+      n.x = cx + Math.cos(a) * width * 0.42
+      n.y = cy + Math.sin(a) * height * 0.4
+    })
+    return
+  }
+
   const maxR = Math.min(width, height) * 0.42
   nodes.forEach((n, i) => {
     const angle = i * GOLDEN
     const r = nodes.length === 1 ? 0 : Math.sqrt((i + 0.5) / nodes.length) * maxR
     n.x = cx + Math.cos(angle) * r
     n.y = cy + Math.sin(angle) * r
-    n.vx = 0
-    n.vy = 0
   })
 }
 
@@ -588,9 +652,33 @@ function seedPositions (nodes, width, height) {
  * @param {object} opts { width, height, iterations, padding }
  */
 export function layoutNetwork (nodes, edges, opts = {}) {
-  const { width = 1000, height = 700, iterations = 260, padding = 74 } = opts
+  const { width = 1000, height = 700, padding = 74, initial = null } = opts
   if (!nodes.length) return nodes
-  seedPositions(nodes, width, height)
+  if (initial) {
+    // Reaproveita o arranjo anterior: ao mudar tamanho ou modo de citação os
+    // nós apenas se acomodam, em vez de saltar para posições novas.
+    for (const n of nodes) {
+      const prev = initial.get(n.id)
+      if (prev) {
+        n.x = prev.x
+        n.y = prev.y
+        n.vx = 0
+        n.vy = 0
+      }
+    }
+    // Nós novos (filtro recém-ligado) entram perto do centro, sem bagunçar o resto.
+    nodes.filter((n) => typeof n.x !== 'number' || typeof n.y !== 'number')
+      .forEach((n, i) => {
+        const angle = i * GOLDEN
+        n.x = width / 2 + Math.cos(angle) * (36 + i * 14)
+        n.y = height / 2 + Math.sin(angle) * (36 + i * 14)
+        n.vx = 0
+        n.vy = 0
+      })
+  } else {
+    seedPositions(nodes, edges, width, height)
+  }
+  const iterations = opts.iterations ?? (initial ? 150 : 260)
 
   const index = new Map(nodes.map((n, i) => [n.id, i]))
   const ideal = (edge) => {
@@ -608,6 +696,25 @@ export function layoutNetwork (nodes, edges, opts = {}) {
   const cy = height / 2
   const repel = n > 120 ? 2400 : n > 40 ? 3000 : n > 16 ? 3000 : 2100
   const gravity = n <= 10 ? 0.011 : 0.005
+
+  // Com códigos e trechos, os códigos ficam ancorados em uma elipse regular:
+  // a rede mantém a mesma estrutura a cada reorganização, em vez de virar um nó
+  // embaralhado. Os trechos continuam livres ao redor.
+  const codeNodes = nodes
+    .filter((node) => node.kind === 'code')
+    .sort((a, b) => (b.weight || 0) - (a.weight || 0) || String(a.label).localeCompare(String(b.label)))
+  const hasQuotes = nodes.some((node) => node.kind === 'quote')
+  const anchors = new Map()
+  if (!initial && codeNodes.length >= 2 && hasQuotes) {
+    const maxW = codeNodes.reduce((m, node) => Math.max(m, nodeHalf(node).hw * 2), 0)
+    const maxH = codeNodes.reduce((m, node) => Math.max(m, nodeHalf(node).hh * 2), 0)
+    const rx = Math.max(width * 0.27, (codeNodes.length * (maxW + 36)) / (Math.PI * 2))
+    const ry = Math.max(height * 0.23, (codeNodes.length * (maxH + 44)) / (Math.PI * 2))
+    codeNodes.forEach((node, i) => {
+      const a = (i / codeNodes.length) * Math.PI * 2 - Math.PI / 2
+      anchors.set(node.id, { x: cx + Math.cos(a) * rx, y: cy + Math.sin(a) * ry })
+    })
+  }
 
   for (let it = 0; it < iterations; it++) {
     const cool = 1 - it / iterations
@@ -643,8 +750,14 @@ export function layoutNetwork (nodes, edges, opts = {}) {
     }
 
     for (const node of nodes) {
-      node.vx += (cx - node.x) * gravity * cool
-      node.vy += (cy - node.y) * gravity * cool
+      const anchor = anchors.get(node.id)
+      if (anchor) {
+        node.vx += (anchor.x - node.x) * 0.38 * cool
+        node.vy += (anchor.y - node.y) * 0.38 * cool
+      } else {
+        node.vx += (cx - node.x) * gravity * cool
+        node.vy += (cy - node.y) * gravity * cool
+      }
       const damp = 0.72
       node.vx *= damp
       node.vy *= damp
@@ -655,31 +768,48 @@ export function layoutNetwork (nodes, edges, opts = {}) {
     }
   }
 
-  // A caixa do código é mais larga que um círculo: reserva a folga necessária.
-  const maxHalf = nodes.reduce((acc, node) => {
-    const { hw, hh } = nodeHalf(node)
-    return { w: Math.max(acc.w, hw), h: Math.max(acc.h, hh) }
-  }, { w: 0, h: 0 })
-  const padX = Math.max(padding, maxHalf.w + 10)
-  const padY = Math.max(padding, maxHalf.h + 10)
+  // Os códigos ocupam posições fixas na elipse; os trechos se acomodam ao
+  // redor. A separação roda em coordenadas de tela, então cada caixa ocupa
+  // exatamente o espaço que ocupa na figura.
+  resolveOverlaps(nodes, {
+    width,
+    height,
+    gap: 18,
+    passes: 500,
+    margin: padding
+  })
 
-  // Normaliza para a área visível, preservando proporções.
-  const xs = nodes.map((n) => n.x)
-  const ys = nodes.map((n) => n.y)
-  const minX = Math.min(...xs)
-  const maxX = Math.max(...xs)
-  const minY = Math.min(...ys)
-  const maxY = Math.max(...ys)
+  // Se sobrou espaço, amplia o conjunto (nunca reduz): assim a figura ocupa a
+  // área disponível sem aproximar caixas e criar sobreposição.
+  let minX = Infinity
+  let maxX = -Infinity
+  let minY = Infinity
+  let maxY = -Infinity
+  for (const node of nodes) {
+    const { hw, hh } = nodeHalf(node)
+    minX = Math.min(minX, node.x - hw)
+    maxX = Math.max(maxX, node.x + hw)
+    minY = Math.min(minY, node.y - hh)
+    maxY = Math.max(maxY, node.y + hh)
+  }
   const spanX = Math.max(1, maxX - minX)
   const spanY = Math.max(1, maxY - minY)
-  const scale = Math.min((width - padX * 2) / spanX, (height - padY * 2) / spanY, 2.2)
+  // Amplia cada eixo separadamente: afastar nunca cria sobreposição e a
+  // figura aproveita toda a área em vez de sobrar margem nas laterais.
+  const growX = Math.min((width - padding * 2) / spanX, 3)
+  const growY = Math.min((height - padding * 2) / spanY, 3)
+  if (growX > 1.02 || growY > 1.02) {
+    const offX = padding + (width - padding * 2 - spanX * growX) / 2
+    const offY = padding + (height - padding * 2 - spanY * growY) / 2
+    for (const node of nodes) {
+      node.x = offX + (node.x - minX) * growX
+      node.y = offY + (node.y - minY) * growY
+    }
+  }
   for (const node of nodes) {
-    node.x = padX + (node.x - minX) * scale
-    node.y = padY + (node.y - minY) * scale
     delete node.vx
     delete node.vy
   }
-  resolveOverlaps(nodes, { width, height, gap: 18, passes: 140 })
   return nodes
 }
 
@@ -737,7 +867,7 @@ export function layoutRadial (nodes, edges, opts = {}) {
     node.x = Math.max(padding, Math.min(width - padding, node.x))
     node.y = Math.max(padding, Math.min(height - padding, node.y))
   }
-  resolveOverlaps(nodes, { width, height, gap: 18, passes: 140 })
+  resolveOverlaps(nodes, { width, height, gap: 18, passes: 140, margin: padding })
   return nodes
 }
 
