@@ -2413,6 +2413,7 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
 .dropzone { min-height: 360px; }
 
 /* ---------------- redes ---------------- */
+.page--net { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 14px; }
 .net-page {
   display: flex;
   flex-direction: column;
@@ -2421,6 +2422,7 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
   min-height: 480px;
   padding-bottom: 6px;
 }
+.page--net .net-page { flex: 1; height: auto; min-height: 0; }
 .net-toolbar {
   display: flex;
   align-items: center;

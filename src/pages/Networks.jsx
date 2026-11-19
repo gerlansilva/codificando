@@ -412,7 +412,7 @@ export default function Networks () {
         </div>
       </div>
 
-      <div className="page">
+      <div className="page page--net">
         <div className="net-page">
           <div className="net-toolbar">
             <div className="net-toggles" role="group" aria-label="Elementos da rede">
