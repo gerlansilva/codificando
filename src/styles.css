@@ -128,7 +128,7 @@ button { font-family: inherit; }
 }
 .sidebar-reopen:hover { background: var(--gray-50); }
 
-.app.sidebar-collapsed .topbar { padding-left: 62px; }
+.app.sidebar-collapsed .app-top { padding-left: 66px; }
 
 .collapse-btn {
   width: 24px;
