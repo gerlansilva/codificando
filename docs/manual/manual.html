@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Codificando — Manual do software</title>
+<style>
+  @font-face {
+    font-family: 'Inter';
+    src: url('../../src/assets/inter-variable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-display: block;
+  }
+  @font-face {
+    font-family: 'Libre Baskerville';
+    src: url('../../src/assets/libre-normal-latin.woff2') format('woff2');
+    font-weight: 400 700;
+    font-display: block;
+  }
+
+  :root {
+    --navy: #15294b;
+    --blue: #4a90e2;
+    --ink: #1a1615;
+    --body: #2c2c2c;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --soft: #f7f8fa;
+    --amber: #c9a227;
+  }
+
+  @page {
+    size: A4;
+    margin: 20mm 17mm 18mm 17mm;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 10.2pt;
+    line-height: 1.62;
+    color: var(--body);
+    font-feature-settings: 'kern' 1, 'liga' 1;
+  }
+
+  p { margin: 0 0 0.62em; }
+  strong { color: var(--ink); font-weight: 600; }
+  em { font-style: italic; }
+  a { color: var(--blue); text-decoration: none; }
+
+  h2 {
+    font-size: 21pt;
+    line-height: 1.16;
+    color: var(--navy);
+    letter-spacing: -0.03em;
+    margin: 0 0 4mm;
+    font-weight: 700;
+  }
+  h2 .num {
+    display: block;
+    font-size: 8.5pt;
+    letter-spacing: 0.16em;
+    color: var(--blue);
+    font-weight: 600;
+    margin-bottom: 1.6mm;
+  }
+  h3 {
+    font-size: 11.4pt;
+    color: var(--navy);
+    letter-spacing: -0.01em;
+    margin: 5.5mm 0 1.6mm;
+    font-weight: 650;
+  }
+  h3:first-of-type { margin-top: 2mm; }
+
+  .lead {
+    break-after: avoid;
+    page-break-after: avoid;
+    font-size: 11pt;
+    line-height: 1.58;
+    color: #46505f;
+    margin-bottom: 5mm;
+  }
+
+  /* ---------- capa ---------- */
+  .cover { page-break-after: always; }
+  .cover-panel {
+    background: var(--navy);
+    color: #fff;
+    border-radius: 3mm;
+    padding: 26mm 18mm 20mm;
+    margin: 0 0 8mm;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover-panel::after {
+    content: '';
+    position: absolute;
+    right: -30mm;
+    top: -30mm;
+    width: 90mm;
+    height: 90mm;
+    border-radius: 50%;
+    background: rgba(74, 144, 226, 0.22);
+  }
+  .cover-icon {
+    width: 24mm;
+    height: 24mm;
+    border-radius: 5mm;
+    display: block;
+    margin-bottom: 14mm;
+    position: relative;
+    z-index: 1;
+  }
+  .cover-kicker {
+    font-size: 8.6pt;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #a9c6ea;
+    margin-bottom: 3mm;
+    position: relative;
+    z-index: 1;
+  }
+  .cover-title {
+    font-size: 40pt;
+    line-height: 1;
+    letter-spacing: -0.045em;
+    font-weight: 700;
+    margin: 0 0 4mm;
+    position: relative;
+    z-index: 1;
+  }
+  .cover-sub {
+    font-size: 13pt;
+    line-height: 1.4;
+    color: #dbe6f4;
+    max-width: 118mm;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .cover-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 10mm;
+    font-size: 9pt;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 4mm;
+  }
+  .cover-foot b { display: block; color: var(--ink); font-weight: 600; font-size: 9.4pt; }
+  .cover-note {
+    margin-top: 14mm;
+    font-size: 9.4pt;
+    color: #46505f;
+    max-width: 120mm;
+  }
+
+  /* ---------- sumário ---------- */
+  .toc-title {
+    font-size: 16pt;
+    color: var(--navy);
+    letter-spacing: -0.02em;
+    margin: 0 0 6mm;
+    font-weight: 700;
+  }
+  .toc { list-style: none; margin: 0; padding: 0; }
+  .toc li {
+    display: flex;
+    align-items: baseline;
+    gap: 2mm;
+    padding: 1.7mm 0;
+    border-bottom: 1px dotted #dcdfe4;
+    font-size: 10pt;
+  }
+  .toc .n { color: var(--blue); font-weight: 600; width: 7mm; flex: none; }
+  .toc .t { flex: 1; color: var(--ink); }
+  .toc .d { color: var(--muted); font-size: 9pt; }
+
+  /* ---------- figuras ---------- */
+  figure {
+    margin: 4mm 0 5mm;
+    page-break-inside: avoid;
+  }
+  figure img {
+    width: 100%;
+    max-height: 96mm;
+    object-fit: contain;
+    display: block;
+    border: 1px solid #d8dbe0;
+    border-radius: 2.4mm;
+    box-shadow: 0 1mm 3mm rgba(21, 41, 75, 0.07);
+  }
+  figcaption {
+    font-size: 8.4pt;
+    color: var(--muted);
+    line-height: 1.45;
+    margin-top: 2mm;
+  }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- listas ---------- */
+  ol, ul { margin: 0 0 3mm; padding-left: 5.4mm; }
+  li { margin-bottom: 1.3mm; }
+  ol.steps { counter-reset: step; list-style: none; padding-left: 0; }
+  ol.steps > li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 8.4mm;
+    margin-bottom: 2.4mm;
+  }
+  ol.steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0.1mm;
+    width: 5.6mm;
+    height: 5.6mm;
+    border-radius: 50%;
+    background: #ebf3fd;
+    color: #2170c4;
+    font-size: 8pt;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ---------- componentes ---------- */
+  .note, .warn, .tip {
+    border-radius: 2mm;
+    padding: 3.2mm 4mm;
+    margin: 3.5mm 0;
+    font-size: 9.4pt;
+    line-height: 1.55;
+    page-break-inside: avoid;
+  }
+  .note { background: #f2f7fd; border-left: 2.6pt solid var(--blue); }
+  .tip { background: #f4f9f2; border-left: 2.6pt solid #6faf4f; }
+  .warn { background: #fdf6ec; border-left: 2.6pt solid var(--amber); }
+  .note b, .tip b, .warn b { color: var(--ink); }
+
+  kbd {
+    font-family: 'Inter', sans-serif;
+    font-size: 8.6pt;
+    background: #f1f3f5;
+    border: 1px solid #d8dbe0;
+    border-bottom-width: 2px;
+    border-radius: 1.2mm;
+    padding: 0.4mm 1.4mm;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  code {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 8.8pt;
+    background: #f3f4f6;
+    border-radius: 1mm;
+    padding: 0.3mm 1.2mm;
+    color: #34405a;
+    word-break: break-all;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 3mm 0 4mm; font-size: 9.2pt; }
+  th {
+    text-align: left;
+    font-size: 7.8pt;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    padding: 0 2mm 1.4mm;
+    border-bottom: 1px solid #d8dbe0;
+  }
+  td { padding: 1.8mm 2mm; border-bottom: 1px solid #eceef1; vertical-align: top; }
+  td:first-child { white-space: nowrap; }
+
+  .section { }
+  .chapter-open { break-inside: avoid; page-break-inside: avoid; }
+  .keep, .words { page-break-inside: avoid; break-inside: avoid; }
+  h2.pb { page-break-before: always; break-before: page; }
+  h2 { break-after: avoid; page-break-after: avoid; break-inside: avoid; page-break-inside: avoid; }
+  h3 { break-after: avoid; page-break-after: avoid; }
+
+  .two-col { display: flex; gap: 6mm; }
+  .two-col > div { flex: 1; }
+
+  .banner {
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 2.4mm;
+    padding: 4mm 5mm;
+    font-size: 9.4pt;
+    line-height: 1.55;
+    margin: 4mm 0;
+  }
+  .banner b { color: var(--navy); }
+</style>
+</head>
+<body>
+
+<!-- ============ CAPA ============ -->
+<section class="cover">
+  <div class="cover-panel">
+    <img class="cover-icon" src="../../src/assets/codificando-icon.png" alt="">
+    <div class="cover-kicker">Análise qualitativa de dados</div>
+    <h1 class="cover-title">Codificando</h1>
+    <p class="cover-sub">Manual do software — codificação de documentos, comentários, buscas e consultas, tudo local, no seu Mac.</p>
+  </div>
+
+  <div class="cover-foot">
+    <div>
+      <b>Versão 0.2.0</b>
+      macOS (Apple Silicon)
+    </div>
+    <div>
+      <b>Gerlan Silva da Silva</b>
+      Doutorando em Educação — UFSCar<br>
+      ORCID 0000-0002-9996-9983
+    </div>
+    <div>
+      <b>Novembro de 2026</b>
+      Aplicativo 100% local
+    </div>
+  </div>
+
+  <p class="cover-note">
+    Este manual descreve a versão 0.2 do aplicativo: a mesma análise qualitativa de antes,
+    agora com importação de PDF escaneado por OCR, exportação em DOCX e HTML, backups
+    automáticos, proteção por senha e histórico de projetos recentes.
+  </p>
+</section>
+
+<!-- ============ SUMÁRIO ============ -->
+<section>
+  <h2 class="toc-title">Sumário</h2>
+  <ul class="toc">
+    <li><span class="n">1</span><span class="t">Instalação e primeira abertura</span><span class="d">3</span></li>
+    <li><span class="n">2</span><span class="t">A interface</span><span class="d">4</span></li>
+    <li><span class="n">3</span><span class="t">Projeto: criar, abrir e salvar</span><span class="d">5</span></li>
+    <li><span class="n">4</span><span class="t">Importar documentos</span><span class="d">6</span></li>
+    <li><span class="n">5</span><span class="t">Ler e codificar</span><span class="d">7</span></li>
+    <li><span class="n">6</span><span class="t">Codebook: a árvore de códigos</span><span class="d">9</span></li>
+    <li><span class="n">7</span><span class="t">Trechos</span><span class="d">10</span></li>
+    <li><span class="n">8</span><span class="t">Comentários</span><span class="d">11</span></li>
+    <li><span class="n">9</span><span class="t">Consultas</span><span class="d">12</span></li>
+    <li><span class="n">10</span><span class="t">Relatórios e exportação</span><span class="d">13</span></li>
+    <li><span class="n">11</span><span class="t">Busca</span><span class="d">14</span></li>
+    <li><span class="n">12</span><span class="t">Configurações, dados e backups</span><span class="d">15</span></li>
+    <li><span class="n">13</span><span class="t">Proteção por senha</span><span class="d">16</span></li>
+    <li><span class="n">14</span><span class="t">Atalhos de teclado</span><span class="d">17</span></li>
+    <li><span class="n">15</span><span class="t">Privacidade e onde ficam os dados</span><span class="d">17</span></li>
+    <li><span class="n">16</span><span class="t">Problemas comuns</span><span class="d">18</span></li>
+  </ul>
+
+
+
+  <div class="words">
+  <h3>O vocabulário do aplicativo</h3>
+  <table>
+    <thead><tr><th>Termo</th><th>Significado</th></tr></thead>
+    <tbody><tr><td><strong>Projeto</strong></td><td>Um arquivo <code>.investigando</code> com todos os documentos, códigos, trechos e comentários.</td></tr><tr><td><strong>Documento</strong></td><td>Um texto importado: PDF, DOC/DOCX, TXT ou RTF. Também chamado de transcrição.</td></tr><tr><td><strong>Código</strong></td><td>Um rótulo analítico. Pode ter códigos-filho, formando uma árvore (codebook).</td></tr><tr><td><strong>Trecho</strong></td><td>Um pedaço de texto marcado e associado a um código. Também chamado de citação.</td></tr><tr><td><strong>Comentário</strong></td><td>Uma nota analítica presa a um trecho (memo). Não altera o texto original.</td></tr><tr><td><strong>Consulta</strong></td><td>Um filtro combinado de códigos, documentos e texto, que pode ser salvo.</td></tr></tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============ 1 INSTALAÇÃO ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 1</span>Instalação e primeira abertura</h2>
+  <p class="lead">O Codificando é um aplicativo de macOS que roda inteiramente no seu computador. Não há conta, servidor, nem envio de dados pela rede.</p>
+
+  <ol class="steps">
+    <li>Abra o arquivo <code>Codificando_0.2.0_aarch64.dmg</code> que acompanha a distribuição.</li>
+    <li>Arraste o ícone do <strong>Codificando</strong> para a pasta <strong>Aplicações</strong>.</li>
+    <li>Na primeira abertura, se o macOS avisar que o aplicativo é de um desenvolvedor não identificado, clique com o botão direito no ícone e escolha <strong>Abrir</strong> e depois <strong>Abrir</strong> de novo.</li>
+  </ol>
+  </div>
+
+  <div class="note">
+    <b>Por que aparece esse aviso?</b> A versão distribuída fora da App Store é assinada localmente
+    (ad-hoc). O aviso do Gatekeeper é esperado e não indica problema: ele aparece uma única vez
+    para cada aplicativo baixado de fora da loja.
+  </div>
+
+  <h3>Requisitos</h3>
+  <ul>
+    <li>macOS 11 ou superior, em Mac com chip Apple Silicon (M1 em diante).</li>
+    <li>Cerca de 60 MB de espaço em disco, mais o espaço dos seus documentos.</li>
+    <li>Nenhuma conexão com a internet é necessária.</li>
+  </ul>
+
+  <h3>Onde ficam os dados</h3>
+  <p>
+    O aplicativo guarda o projeto atual e os arquivos anexados em
+    <code>~/Library/Application Support/Investigando/</code>. Essa pasta é privada do seu usuário.
+    Você pode abri-la a qualquer momento em <strong>Configurações → Dados → Mostrar pasta de dados</strong>.
+  </p>
+
+  <h3>Atualizações</h3>
+  <p>
+    Em <strong>Configurações → Versão e atualizações</strong> há o botão <strong>Verificar atualizações</strong>.
+    A verificação é manual e opcional: se não houver internet, o aplicativo continua funcionando
+    normalmente e apenas informa que não foi possível consultar.
+  </p>
+</section>
+
+<!-- ============ 2 INTERFACE ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 2</span>A interface</h2>
+  <p class="lead">A janela se divide em três regiões fixas: a barra lateral, a faixa superior do projeto e a área de conteúdo.</p>
+
+  <figure>
+    <img src="capturas/home.png" alt="Visão geral do projeto">
+    <figcaption><b>Visão geral do projeto.</b> A barra lateral reúne documentos, busca e as visões de análise. A faixa superior mostra o nome do projeto, o estado de salvamento e o botão Salvar.</figcaption>
+  </figure>
+  </div>
+
+  <h3>Barra lateral</h3>
+  <ul>
+    <li><strong>Documentos</strong> — lista os documentos do projeto; a seta ao lado do título recolhe a lista.</li>
+    <li><strong>Novo documento</strong> — abre a tela de importação.</li>
+    <li><strong>Buscar</strong> — busca global por texto em todos os documentos e códigos.</li>
+    <li><strong>Códigos</strong> — o codebook hierárquico.</li>
+    <li><strong>Trechos</strong> — todos os trechos codificados, com filtros.</li>
+    <li><strong>Consultas</strong> — filtros combinados e consultas salvas.</li>
+    <li><strong>Comentários</strong> — todos os comentários analíticos do projeto.</li>
+    <li><strong>Relatórios</strong> — números do projeto e exportações.</li>
+  </ul>
+
+  <p>
+    O botão <strong>«</strong> no alto da barra lateral a recolhe, deixando mais espaço para o texto.
+    Para reabri-la, use o botão <strong>☰</strong> no canto superior esquerdo ou o atalho <kbd>⌘</kbd><kbd>B</kbd>.
+  </p>
+
+  <h3>Faixa superior do projeto</h3>
+  <p>
+    O nome do projeto, no topo, é também um atalho para a visão geral. Ao lado dele, o menu
+    <strong>⋯</strong> concentra as ações de arquivo: abrir projeto, salvar como, proteger com senha,
+    mostrar a pasta de dados e backups.
+  </p>
+  <p>
+    À direita ficam o indicador de salvamento (ponto verde, âmbar ou vermelho), a hora do último
+    salvamento e o botão <strong>Salvar</strong>, que força a gravação imediata. O salvamento é
+    automático: o botão existe para quando você quiser garantir que o arquivo foi gravado antes
+    de fechar o aplicativo ou desligar o computador.
+  </p>
+
+  <div class="tip">
+    <b>Hábitos que evitam sustos.</b> Ao terminar uma sessão de codificação, confira o indicador
+    <em>Salvo</em>. Ao abrir um projeto novo, use <strong>Salvar como…</strong> para escolher o
+    arquivo. E mantenha o projeto dentro de uma pasta sincronizada ou com backup do seu próprio
+    sistema, além dos backups internos do aplicativo.
+  </div>
+</section>
+
+<!-- ============ 3 PROJETO ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 3</span>Projeto: criar, abrir e salvar</h2>
+  <p class="lead">Tudo o que você faz fica dentro de um arquivo de projeto. Um projeto pode reunir dezenas de documentos e milhares de trechos.</p>
+
+  
+  </div><h3>Criar</h3>
+  <p>
+    Ao abrir o aplicativo pela primeira vez, o projeto começa vazio e sem arquivo. Dê um nome em
+    <strong>Configurações</strong> (clique no logo) ou use <strong>⋯ → Salvar como…</strong> para escolher
+    onde guardar o arquivo. A partir daí, cada alteração é gravada nesse arquivo.
+  </p>
+
+  <h3>Abrir</h3>
+  <p>
+    Use <strong>⋯ → Abrir projeto…</strong> e escolha um arquivo <code>.investigando</code>. A tela de
+    visão geral mostra, logo abaixo, a lista de <strong>Projetos recentes</strong>: os dez últimos
+    arquivos abertos, com nome, caminho abreviado e data. Um clique abre o projeto direto.
+  </p>
+
+  <h3>Salvar como</h3>
+  <p>
+    <strong>⋯ → Salvar como…</strong> grava uma cópia em outro arquivo e passa a trabalhar nela.
+    É o caminho recomendado para criar versões do projeto (por exemplo, antes de uma
+    reestruturação grande do codebook) ou para mover o arquivo para outra pasta.
+  </p>
+
+  <div class="warn">
+    <b>O arquivo é a única fonte da verdade.</b> O aplicativo não mantém uma cópia paralela em
+    nuvem. Se você mover ou renomear o arquivo pelo Finder, use <strong>Abrir projeto…</strong>
+    no novo local; a lista de recentes apontará para o caminho antigo.
+  </div>
+
+  <h3>Backups automáticos</h3>
+  <p>
+    A cada gravação bem-sucedida, o aplicativo guarda uma cópia do arquivo em
+    <code>~/Library/Application Support/Investigando/backups/</code>, em uma subpasta por projeto.
+    São no máximo 20 cópias por projeto, com no máximo uma por minuto — as mais antigas são
+    descartadas automaticamente. O capítulo 12 explica como listar e restaurar.
+  </p>
+</section>
+
+<!-- ============ 4 IMPORTAR ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 4</span>Importar documentos</h2>
+  <p class="lead">O Codificando aceita PDF, DOC, DOCX, TXT e RTF. Um documento pode ter até 5 milhões de caracteres.</p>
+
+  <figure>
+    <img src="capturas/new.png" alt="Tela de importação de documento">
+    <figcaption><b>Adicionar documento.</b> Dê um nome ao documento ou deixe em branco para usar o nome do arquivo. Arraste os arquivos para a área central ou clique em Escolher arquivos.</figcaption>
+  </figure>
+  </div>
+
+  <ol class="steps">
+    <li>Clique em <strong>+ Adicionar documento</strong>, na barra lateral ou na tela de documentos.</li>
+    <li>Arraste um ou vários arquivos para a área pontilhada. É possível importar vários de uma vez.</li>
+    <li>Confira o nome de cada documento. Para entrevistas, um padrão como <em>Entrevista 03 — Marina</em> facilita a leitura depois.</li>
+    <li>Clique em <strong>Adicionar documento</strong>. A importação mostra o progresso por arquivo.</li>
+  </ol>
+
+  <h3>Diálogos e falantes</h3>
+  <p>
+    Quando o texto tem falantes no formato <code>Nome: fala</code> — como em transcrições de
+    entrevista —, o editor reconhece o padrão e exibe cada fala com o nome do falante destacado,
+    em vez de um bloco corrido. Não é preciso marcar nada: a detecção é automática.
+  </p>
+
+  <h3>PDF escaneado e OCR</h3>
+  <p>
+    Se o PDF não tiver camada de texto — o caso típico de documentos digitalizados —, o
+    aplicativo percebe que o texto extraído é insuficiente e aplica <strong>OCR</strong>
+    (reconhecimento óptico de caracteres) usando o motor nativo do macOS. Enquanto isso, a fila
+    de importação mostra o aviso <em>PDF escaneado: aplicando OCR…</em>.
+  </p>
+  <p>
+    Cada página é renderizada em resolução alta, reconhecida e remontada no mesmo formato de um
+    PDF comum, com a mesma paginação. O resultado é um documento editável e codificável como
+    qualquer outro. Se alguma página não puder ser reconhecida, ela fica em branco e o restante
+    do documento é preservado.
+  </p>
+
+  <div class="note">
+    <b>Qualidade do OCR.</b> O reconhecimento é muito bom em digitalizações nítidas, com boa
+    iluminação e texto na horizontal. Em páginas tortas, com marcas d'água ou manuscritos, sempre
+    vale conferir o trecho antes de codificar.
+  </div>
+
+  <h3>Word e RTF</h3>
+  <p>
+    Arquivos <code>.docx</code> são lidos diretamente. <code>.doc</code> e <code>.rtf</code> passam
+    pela conversão de texto do próprio macOS (textutil). O resultado é texto puro: formatação,
+    tabelas e imagens não são preservadas, porque o que interessa para a análise é o conteúdo.
+  </p>
+</section>
+
+<!-- ============ 5 CODIFICAR ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 5</span>Ler e codificar</h2>
+  <p class="lead">O editor é onde a análise acontece: você lê o documento e transforma trechos em evidências ligadas a códigos.</p>
+
+  <figure>
+    <img src="capturas/editor.png" alt="Editor de documento com trechos codificados">
+    <figcaption><b>Editor.</b> À esquerda, o texto com os trechos já codificados em destaque. À direita, o codebook do documento, com a contagem de trechos por código.</figcaption>
+  </figure>
+  </div>
+
+  <ol class="steps">
+    <li>Abra um documento pela barra lateral ou pela lista de documentos.</li>
+    <li>Selecione com o mouse o trecho que deseja codificar. O menu de códigos aparece sobre a seleção.</li>
+    <li>Escolha um código existente ou digite um nome novo para criar o código na hora.</li>
+    <li>Confirme. O trecho fica destacado com a cor do código, e a contagem no painel da direita aumenta.</li>
+  </ol>
+
+  <p>
+    Se preferir, selecione o texto e pressione <kbd>⌘</kbd><kbd>Enter</kbd> para aplicar o último
+    código usado. Para remover um trecho, clique sobre ele e escolha a ação de remover no menu do
+    trecho, ou use <kbd>⌘</kbd><kbd>Z</kbd> imediatamente após a codificação.
+  </p>
+
+  <h3>Sobreposições</h3>
+  <p>
+    Um mesmo trecho pode receber mais de um código. Quando há sobreposição, o editor mostra as
+    duas marcações e o painel lateral indica a quais códigos o trecho pertence. Isso é útil para
+    registrar, por exemplo, que uma fala é ao mesmo tempo <em>mediação docente</em> e
+    <em>cultura escolar</em>.
+  </p>
+
+  <h3>Buscar dentro do documento</h3>
+  <p>
+    <kbd>⌘</kbd><kbd>F</kbd> abre a busca da página e leva à busca global; dentro do documento,
+    o campo de busca no alto do texto localiza ocorrências e <kbd>⌘</kbd><kbd>G</kbd> salta para
+    a próxima. <kbd>Esc</kbd> limpa a busca.
+  </p>
+
+  <h3>Comentar um trecho</h3>
+  <p>
+    Com um trecho selecionado, escolha <strong>Comentar</strong> no menu do trecho. O comentário
+    fica preso àquele recorte e aparece depois na página <strong>Comentários</strong> e nos
+    relatórios. É o lugar para registrar interpretações, dúvidas, hipóteses e referências
+    teóricas — sem poluir o texto original.
+  </p>
+
+  <div class="tip">
+    <b>Ritmo de trabalho.</b> Codificar em duas passadas costuma render mais: na primeira, marque
+    os trechos com códigos amplos, ainda provisórios; na segunda, refine o codebook e use os
+    códigos-filho para separar matizes.
+  </div>
+</section>
+
+<!-- ============ 6 CODEBOOK ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 6</span>Codebook: a árvore de códigos</h2>
+  <p class="lead">O codebook é a estrutura analítica do projeto. Códigos podem ser agrupados em códigos-pai, formando uma hierarquia de até vários níveis.</p>
+
+  <figure>
+    <img src="capturas/codes.png" alt="Página de códigos com árvore hierárquica">
+    <figcaption><b>Códigos.</b> Cada linha mostra a cor, o nome e a contagem de trechos. O número à direita indica trechos no próprio código e, depois da barra, no código com todos os descendentes.</figcaption>
+  </figure>
+  </div>
+
+  <h3>Criar e organizar</h3>
+  <ul>
+    <li><strong>Novo código</strong> — use o botão <strong>+ Código</strong>, no painel do editor, ou digite um nome novo ao aplicar um trecho.</li>
+    <li><strong>Aninhar</strong> — arraste um código sobre outro para torná-lo filho. Arraste para fora para voltar ao nível principal.</li>
+    <li><strong>Renomear</strong> — clique duas vezes no nome.</li>
+    <li><strong>Cor</strong> — a cor é atribuída automaticamente na criação, em uma paleta de 12 tons, e pode ser alterada no menu do código.</li>
+    <li><strong>Mesclar</strong> — o menu <strong>⋯</strong> de cada código permite absorver um código em outro, movendo todos os trechos.</li>
+  </ul>
+
+  <h3>Contagens</h3>
+  <p>
+    A contagem ao lado de cada código é o termômetro da análise: códigos com um único trecho
+    costumam ser provisórios ou excessivamente específicos; códigos com dezenas de trechos
+    podem estar amplos demais. O relatório de distribuição, no capítulo 10, mostra a mesma
+    informação em barras.
+  </p>
+
+  <div class="note">
+    <b>Códigos não são categorias prontas.</b> Um codebook maduro mistura códigos descritivos,
+    que nomeiam o que aparece no material, e códigos analíticos, que já expressam uma
+    interpretação. Manter os dois visíveis na árvore ajuda a saber o que ainda é descrição.
+  </div>
+</section>
+
+<!-- ============ 7 TRECHOS ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 7</span>Trechos</h2>
+  <p class="lead">A página de trechos é a vista de trabalho sobre as evidências: todos os recortes codificados do projeto em uma tabela única.</p>
+
+  <figure>
+    <img src="capturas/snippets.png" alt="Lista de trechos codificados">
+    <figcaption><b>Trechos.</b> Cada linha traz documento, página, código, o texto do recorte e, quando existe, o comentário. Clique na linha para abrir o trecho no documento; o botão direito abre as demais ações.</figcaption>
+  </figure>
+  </div>
+
+  <h3>Filtros</h3>
+  <p>
+    Os três controles no alto combinam-se entre si: documento, texto contido no trecho e código.
+    Usar um código-pai traz também os trechos dos códigos-filho, o que permite olhar uma
+    categoria inteira de uma vez.
+  </p>
+
+  <h3>Ações</h3>
+  <ul>
+    <li><strong>Abrir no documento</strong> — leva ao ponto exato do texto, com o trecho destacado.</li>
+    <li><strong>Copiar</strong> — copia o texto do recorte para a área de transferência, com ou sem referência ao documento.</li>
+    <li><strong>Recodificar</strong> — troca o código do trecho.</li>
+    <li><strong>Remover</strong> — apaga a marcação; o texto do documento permanece intacto.</li>
+  </ul>
+
+  <div class="tip">
+    <b>Seleção múltipla.</b> As caixas à esquerda permitem selecionar vários trechos e aplicar uma
+    ação em lote, como copiar tudo o que pertence a um código para colar no texto que você está
+    escrevendo.
+  </div>
+</section>
+
+<!-- ============ 8 COMENTÁRIOS ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 8</span>Comentários</h2>
+  <p class="lead">Comentários são memos analíticos: ficam ligados a um trecho, mas não alteram o texto do documento.</p>
+
+  <figure>
+    <img src="capturas/comments.png" alt="Lista de comentários do projeto">
+    <figcaption><b>Comentários.</b> A tabela reúne documento, página, o trecho comentado, o texto do comentário e a data. O campo de filtro procura no conteúdo dos comentários.</figcaption>
+  </figure>
+  </div>
+
+  <h3>Para que servem</h3>
+  <ul>
+    <li>Registrar a interpretação que justifica um código.</li>
+    <li>Anotar hipóteses a confirmar em outros documentos.</li>
+    <li>Guardar referências teóricas ligadas a um recorte específico.</li>
+    <li>Marcar trechos que precisam de segunda leitura ou de conferência com o participante.</li>
+  </ul>
+
+  <p>
+    Cada comentário aparece também no editor, ao abrir o trecho correspondente, e é incluído na
+    exportação em DOCX e HTML. O botão <strong>Exportar (.csv)</strong> gera uma planilha com
+    documento, trecho, comentário e data, útil para análise em outro software.
+  </p>
+
+  <div class="note">
+    <b>Um comentário por trecho e por tipo.</b> Um mesmo trecho pode ter um comentário analítico
+    e uma anotação de outra natureza; os dois convivem sem se sobrescrever.
+  </div>
+</section>
+
+<!-- ============ 9 CONSULTAS ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 9</span>Consultas</h2>
+  <p class="lead">Consultas combinam códigos, documentos e texto para responder perguntas do tipo “o que os professores dos anos iniciais dizem sobre erro?”.</p>
+
+  <figure>
+    <img src="capturas/consultas.png" alt="Consulta com filtros e resultados">
+    <figcaption><b>Consultas.</b> Filtros de códigos e documentos no alto, campo de texto livre e, abaixo, os trechos que satisfazem a combinação, com ordenação por relevância ou por documento.</figcaption>
+  </figure>
+  </div>
+
+  <h3>Como montar</h3>
+  <ol class="steps">
+    <li>Escolha um ou mais códigos em <strong>Selecionar códigos</strong>. Sem escolha, todos entram.</li>
+    <li>Restrinja a documentos específicos, se quiser comparar subgrupos.</li>
+    <li>Digite um termo em <strong>Texto</strong> para exigir que o trecho contenha determinada palavra ou expressão.</li>
+    <li>Percorra os resultados. Clicar em um trecho abre o documento no ponto correspondente.</li>
+    <li>Se a combinação for útil, clique em <strong>Salvar consulta</strong> e dê um nome. Ela fica disponível no alto da página.</li>
+  </ol>
+
+  <p>
+    <strong>Exportar resultados (.csv)</strong> grava documento, página, códigos e texto de cada
+    resultado — um jeito rápido de levar a evidência para uma planilha ou para o software de
+    análise quantitativa.
+  </p>
+
+  <div class="tip">
+    <b>Consultas como roteiro de escrita.</b> Salve uma consulta para cada seção do capítulo de
+    resultados. Ao escrever, você abre a consulta, exporta o CSV e tem exatamente as evidências
+    daquele argumento, sem reler o material inteiro.
+  </div>
+</section>
+
+<!-- ============ 10 RELATÓRIOS ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 10</span>Relatórios e exportação</h2>
+  <p class="lead">A página de relatórios resume o projeto e exporta os dados em formatos que abrem em qualquer computador.</p>
+
+  <figure>
+    <img src="capturas/reports.png" alt="Página de relatórios com números e botões de exportação">
+    <figcaption><b>Relatórios.</b> No alto, os totais de documentos, códigos, trechos e documentos com código. Abaixo, a distribuição dos códigos e os trechos por documento.</figcaption>
+  </figure>
+  </div>
+
+  <h3>Formatos</h3>
+  <table>
+    <thead><tr><th>Botão</th><th>O que gera</th><th>Para que serve</th></tr></thead>
+    <tbody><tr><td>Codebook (.csv)</td><td>Códigos, hierarquia e contagens</td><td>Revisar a estrutura, comparar versões do codebook</td></tr><tr><td>Trechos codificados (.csv)</td><td>Documento, página, código, trecho e comentário</td><td>Análise em planilha ou software estatístico</td></tr><tr><td>Transcrições + códigos (.txt)</td><td>Texto completo com as marcações</td><td>Leitura corrida e conferência</td></tr><tr><td>Exportar DOCX</td><td>Relatório formatado, com tabelas</td><td>Anexo de projeto, relatório para orientador</td></tr><tr><td>Exportar HTML</td><td>Página autocontida, pronta para impressão</td><td>Enviar por e-mail, arquivar, imprimir</td></tr><tr><td>Salvar como PDF</td><td>PDF gerado pela impressão do sistema</td><td>Versão final para leitura</td></tr></tbody>
+  </table>
+
+  <h3>O relatório em DOCX e HTML</h3>
+  <p>
+    Os dois formatos têm a mesma estrutura: cabeçalho com título e data, resumo numérico,
+    tabela de códigos com contagem, trechos agrupados por código (com documento, página e
+    comentário) e a lista de documentos. O DOCX usa fonte Arial e tabelas com cabeçalho
+    sombreado; o HTML traz o CSS de impressão embutido, em A4. Ambos são gerados no seu
+    computador, sem enviar nada para a rede.
+  </p>
+
+  <div class="note">
+    <b>PDF pelo sistema.</b> <strong>Salvar como PDF</strong> abre a janela de impressão do macOS;
+    escolha <em>Salvar como PDF</em> no menu inferior. É o caminho para PDF com a paginação do
+    sistema, com margens e numeração controladas por você.
+  </div>
+</section>
+
+<!-- ============ 11 BUSCA ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 11</span>Busca</h2>
+  <p class="lead">A busca varre todos os documentos e códigos do projeto e mostra o trecho ao redor de cada ocorrência.</p>
+
+  <figure>
+    <img src="capturas/search.png" alt="Busca global por termo">
+    <figcaption><b>Buscar.</b> Digite ao menos dois caracteres. O resultado traz o documento, o contexto e o termo destacado; um clique abre o documento no ponto exato.</figcaption>
+  </figure>
+  </div>
+
+  <p>
+    A busca ignora diferenças de acentuação e de maiúsculas: <em>mediacao</em> encontra
+    <em>mediação</em>, e <em>Erro</em> encontra <em>erro</em>. O filtro por <strong>Documentos</strong>
+    ou <strong>Códigos</strong> restringe o escopo. O atalho <kbd>⌘</kbd><kbd>F</kbd> leva direto
+    para esta página de qualquer lugar do aplicativo.
+  </p>
+
+  <div class="tip">
+    <b>Busca é diferente de consulta.</b> A busca serve para localizar uma palavra no material;
+    a consulta serve para recortar evidências por código e documento. Use a busca para achar
+    um caso, e a consulta para sustentar um argumento.
+  </div>
+</section>
+
+<!-- ============ 12 CONFIGURAÇÕES ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 12</span>Configurações, dados e backups</h2>
+  <p class="lead">As configurações reúnem a identidade do projeto, o caminho dos dados, a proteção por senha, os backups e a verificação de atualizações.</p>
+
+  <figure>
+    <img src="capturas/settings.png" alt="Tela de configurações">
+    <figcaption><b>Configurações.</b> Nome e descrição do projeto, pasta de dados, senha e, mais abaixo, os backups do arquivo atual.</figcaption>
+  </figure>
+  </div>
+
+  <h3>Projeto</h3>
+  <p>
+    Nome e descrição aparecem na visão geral e nos relatórios exportados. A descrição é um bom
+    lugar para registrar o recorte da pesquisa, os participantes e a etapa em que o material está.
+  </p>
+
+  <h3>Dados</h3>
+  <p>
+    O caminho exibido é a pasta onde o aplicativo guarda o projeto em uso e os arquivos anexados.
+    <strong>Mostrar pasta de dados</strong> abre essa pasta no Finder, para copiar ou conferir
+    arquivos manualmente.
+  </p>
+
+  <h3>Backups do projeto</h3>
+  <p>
+    A lista mostra as versões guardadas automaticamente, da mais recente para a mais antiga, com
+    data, hora e tamanho. Três ações estão disponíveis:
+  </p>
+  <ul>
+    <li><strong>Restaurar</strong> — pede confirmação, guarda o estado atual como um novo backup e só então sobrescreve o projeto com a versão escolhida. A tela recarrega com os dados restaurados.</li>
+    <li><strong>Excluir</strong> — remove aquela cópia.</li>
+    <li><strong>Criar backup agora</strong> — força uma cópia, respeitando o limite de uma por minuto.</li>
+  </ul>
+
+  <div class="warn">
+    <b>Restaurar é retroativo.</b> Tudo o que foi feito depois do backup escolhido deixa de fazer
+    parte do projeto. Como o estado atual é salvo antes, é possível voltar atrás restaurando esse
+    snapshot mais novo.
+  </div>
+</section>
+
+<!-- ============ 13 SENHA ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 13</span>Proteção por senha</h2>
+  <p class="lead">Projetos com material sensível podem ser gravados cifrados. O arquivo continua sendo um JSON válido, mas o conteúdo só é legível com a senha.</p>
+
+  
+  </div><h3>Como funciona</h3>
+  <p>
+    A senha não é guardada em lugar nenhum. A partir dela, o aplicativo deriva uma chave com
+    PBKDF2-SHA256 (210 mil iterações) e cifra o conteúdo com AES-GCM de 256 bits, usando um sal
+    e um vetor de inicialização aleatórios. Sem a senha, o arquivo é apenas ruído.
+  </p>
+
+  <h3>Proteger</h3>
+  <ol class="steps">
+    <li>Salve o projeto em um arquivo, se ainda não fez isso.</li>
+    <li>Abra <strong>⋯ → Proteger com senha…</strong>.</li>
+    <li>Digite a senha e confirme. A gravação seguinte já sai cifrada.</li>
+  </ol>
+
+  <h3>Abrir um projeto protegido</h3>
+  <p>
+    Ao abrir o arquivo, o aplicativo pede a senha. Enquanto ela não for informada, nenhum dado é
+    carregado e nada é gravado por cima do arquivo — a tela inicial só é montada depois de uma
+    leitura bem-sucedida.
+  </p>
+
+  <h3>Trocar e remover</h3>
+  <p>
+    As duas ações exigem a senha atual. <strong>Trocar senha…</strong> regrava o arquivo com a nova
+    chave; <strong>Remover senha…</strong> volta a gravar JSON simples. Em ambos os casos, os
+    backups antigos permanecem como estavam: cópias cifradas continuam cifradas.
+  </p>
+
+  <div class="warn">
+    <b>Não existe recuperação de senha.</b> Se você perder a senha, o conteúdo do arquivo não pode
+    ser lido — nem pelo desenvolvedor. Guarde-a em um gerenciador de senhas e, para projetos
+    longos, mantenha uma versão sem proteção em local seguro.
+  </div>
+</section>
+
+<!-- ============ 14 ATALHOS ============ -->
+<section class="section">
+  <div class="keep">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 14</span>Atalhos de teclado</h2>
+  <p class="lead">Poucos atalhos, mas os que existem evitam idas e voltas com o mouse.</p>
+
+  
+  </div><table>
+    <thead><tr><th>Atalho</th><th>Ação</th><th>Onde</th></tr></thead>
+    <tbody><tr><td><kbd>⌘</kbd><kbd>B</kbd></td><td>Recolher ou reabrir a barra lateral</td><td>Todo o aplicativo</td></tr><tr><td><kbd>⌘</kbd> <kbd>\\</kbd></td><td>Mesma ação do anterior</td><td>Todo o aplicativo</td></tr><tr><td><kbd>⌘</kbd><kbd>F</kbd></td><td>Abrir a busca global</td><td>Todo o aplicativo</td></tr><tr><td><kbd>⌘</kbd><kbd>Z</kbd></td><td>Desfazer a última alteração</td><td>Todo o aplicativo</td></tr><tr><td><kbd>⇧</kbd><kbd>⌘</kbd><kbd>Z</kbd></td><td>Refazer</td><td>Todo o aplicativo</td></tr><tr><td><kbd>⌘</kbd><kbd>G</kbd></td><td>Próxima ocorrência da busca no documento</td><td>Editor</td></tr><tr><td><kbd>⌘</kbd><kbd>Enter</kbd></td><td>Aplicar o último código à seleção</td><td>Editor</td></tr><tr><td><kbd>Esc</kbd></td><td>Fechar menus, limpar busca, cancelar seleção</td><td>Editor e diálogos</td></tr></tbody>
+  </table>
+
+  <h2 style="margin-top: 12mm"><span class="num">CAPÍTULO 15</span>Privacidade e onde ficam os dados</h2>
+  <p class="lead">O Codificando não tem servidor. Nada do que você importa ou escreve sai do computador.</p>
+
+  <ul>
+    <li><strong>Sem rede.</strong> Importação, OCR, codificação, consultas e exportações acontecem localmente. A única conexão possível é a verificação manual de atualizações, que você mesmo dispara nas configurações.</li>
+    <li><strong>Sem telemetria.</strong> Não há coleta de uso, relatórios de erro automáticos nem identificadores.</li>
+    <li><strong>Dados no seu usuário.</strong> Projetos, anexos e backups ficam em <code>~/Library/Application Support/Investigando/</code> e protegidos pelas permissões do macOS.</li>
+    <li><strong>Notificações e área de transferência.</strong> As notificações do sistema aparecem apenas quando uma tarefa longa termina com o aplicativo em segundo plano. O acesso à área de transferência existe para copiar trechos.</li>
+  </ul>
+
+  <div class="note">
+    <b>Recomendação para material sensível.</b> Guarde o arquivo do projeto em uma pasta com
+    backup, use a proteção por senha e evite sincronizar a pasta de dados em serviços de nuvem
+    sem criptografia adicional, quando o material contiver dados pessoais identificáveis.
+  </div>
+</section>
+
+<!-- ============ 16 PROBLEMAS ============ -->
+<section class="section">
+  <div class="chapter-open"><h2><span class="num">CAPÍTULO 16</span>Problemas comuns</h2>
+  <p class="lead">As situações abaixo cobrem a maior parte dos relatos de suporte.</p>
+
+  
+  </div><h3>O macOS diz que o aplicativo é de um desenvolvedor não identificado</h3>
+  <p>
+    Clique com o botão direito no aplicativo em Aplicações, escolha <strong>Abrir</strong> e confirme
+    <strong>Abrir</strong>. O aviso não volta a aparecer para esse aplicativo. Ele existe porque a
+    distribuição é assinada localmente, não pela App Store.
+  </p>
+
+  <h3>O PDF importou em branco</h3>
+  <p>
+    Provavelmente é um PDF escaneado. Verifique se o aviso de OCR apareceu durante a importação e
+    espere a fila concluir. Se o documento continuar vazio, a digitalização pode estar com
+    resolução muito baixa ou o texto pode estar na vertical. Nesse caso, vale reescancear ou
+    digitar o trecho de interesse como um documento de texto simples.
+  </p>
+
+  <h3>O projeto não abre: pede uma senha</h3>
+  <p>
+    O arquivo foi gravado com proteção. Informe a senha usada quando a proteção foi criada. Se ela
+    foi esquecida, não há recuperação: o conteúdo está cifrado de fato. Resta recorrer a um backup
+    anterior que ainda não estivesse cifrado, se existir.
+  </p>
+
+  <h3>O indicador de salvamento fica vermelho</h3>
+  <p>
+    A gravação falhou — em geral porque o arquivo saiu do lugar, a pasta ficou sem permissão ou o
+    disco está cheio. Use <strong>⋯ → Salvar como…</strong> para gravar em um local novo e continue
+    o trabalho a partir dele.
+  </p>
+
+  <h3>O aplicativo avisa que o arquivo mudou no disco</h3>
+  <p>
+    Outro programa gravou o arquivo que você tem aberto. O aviso não recarrega nada
+    automaticamente, para não perder alterações em andamento. Feche o projeto e abra-o de novo
+    para ler a versão atualizada do disco.
+  </p>
+
+  <h3>Dois aplicativos abertos ao mesmo tempo</h3>
+  <p>
+    O Codificando permite apenas uma instância. Ao abrir o aplicativo com uma janela já aberta, a
+    janela existente vem para a frente em vez de abrir uma segunda cópia — assim não há risco de
+    duas gravações concorrentes no mesmo projeto.
+  </p>
+
+  <h3>O texto do Word perdeu a formatação</h3>
+  <p>
+    É intencional. A análise trabalha com o texto, e não com a aparência. Tabelas e imagens de um
+    DOCX não são importadas; se algum trecho depender de imagem, anote no comentário do trecho ou
+    cite no seu texto.
+  </p>
+
+  
+</section>
+
+</body>
+</html>

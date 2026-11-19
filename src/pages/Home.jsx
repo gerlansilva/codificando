@@ -40,7 +40,7 @@ export default function Home () {
       </p>
       <p className="home-meta">
         {data.project.createdAt ? `Criado em ${formatDate(data.project.createdAt)}` : 'Projeto local'}
-        {' · '}versão 0.1.0
+        {' · '}versão {__APP_VERSION__}
       </p>
 
       <div className="home-actions">

@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import pkg from './package.json' with { type: 'json' }
 
 /**
  * O app nativo (WKWebView) carrega a interface por file://.
@@ -22,6 +23,7 @@ function nativeBundle () {
 
 export default defineConfig({
   plugins: [react(), nativeBundle()],
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   base: './',
   server: { port: 5173, strictPort: true },
   build: {
