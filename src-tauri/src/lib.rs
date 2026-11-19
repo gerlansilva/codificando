@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
 mod backup;
+mod ocr;
 
 /** Watcher do arquivo do projeto: no máximo um por vez. */
 struct WatchState {
@@ -23,6 +24,7 @@ fn mark_write(state: &WatchState) {
         *slot = Some(Instant::now());
     }
 }
+
 
 fn b64() -> base64::engine::GeneralPurpose {
     base64::engine::general_purpose::STANDARD
@@ -406,7 +408,8 @@ pub fn run() {
             backup::backup_create,
             backup::backup_list,
             backup::backup_restore,
-            backup::backup_delete
+            backup::backup_delete,
+            ocr::ocr_image
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

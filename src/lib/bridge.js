@@ -317,5 +317,14 @@ export const bridge = {
     if (wk) return callWk('backup.delete', { path, id })
     if (electron?.backupDelete) return electron.backupDelete(path, id)
     return false
+  },
+
+  /* OCR nativo (Apple Vision) de uma página renderizada em PNG base64 */
+  async ocrImage (base64) {
+    if (isTauri) return invoke('ocr_image', { base64 })
+    if (wk) return callWk('ocr.image', { base64 })
+    if (electron?.ocrImage) return electron.ocrImage(base64)
+    throw new Error('ocr-unavailable')
+
   }
 }
