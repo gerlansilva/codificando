@@ -31,6 +31,48 @@ function callWk (action, payload) {
   })
 }
 
+/* Watcher do arquivo do projeto: um único listen, vários interessados. */
+const fileWatchers = new Set()
+let fileUnlisten = null
+let fileListenPromise = null
+
+async function ensureFileListener () {
+  if (!isTauri || fileUnlisten) return
+  if (!fileListenPromise) {
+    fileListenPromise = import('@tauri-apps/api/event')
+      .then(({ listen }) => listen('project-file-changed', (event) => {
+        for (const fn of fileWatchers) {
+          try { fn(event.payload) } catch (err) { console.error('Watcher do projeto:', err) }
+        }
+      }))
+      .then((un) => { fileUnlisten = un })
+      .catch((err) => {
+        console.error('Falha ao escutar mudanças do projeto', err)
+        fileListenPromise = null
+      })
+  }
+  await fileListenPromise
+}
+
+async function setWatchedProject (path) {
+  if (!isTauri || !path) return false
+  try {
+    return await invoke('watch_project', { path })
+  } catch (err) {
+    console.error('Falha ao observar o arquivo do projeto', err)
+    return false
+  }
+}
+
+/** O app está em foco? Evita notificação redundante. */
+function appFocused () {
+  try {
+    return typeof document !== 'undefined' && document.hasFocus()
+  } catch {
+    return false
+  }
+}
+
 export const bridge = {
   isNative: isTauri || !!wk,
   isElectron: !!electron?.isDesktop,
@@ -154,5 +196,81 @@ export const bridge = {
     if (wk) return callWk('convert', { base64, ext })
     if (electron?.convertDocument) return electron.convertDocument(base64, ext)
     return null
+  },
+
+  /* ---------- recursos nativos ---------- */
+
+  /** Notificação do sistema. Ignorada quando a janela está em foco. */
+  async notify (title, body) {
+    if (!title) return false
+    if (appFocused()) return false
+
+    if (isTauri) {
+      try {
+        const {
+          isPermissionGranted,
+          requestPermission,
+          sendNotification
+        } = await import('@tauri-apps/plugin-notification')
+        let granted = await isPermissionGranted()
+        if (!granted) granted = (await requestPermission()) === 'granted'
+        if (!granted) return false
+        sendNotification({ title, body: body || '' })
+        return true
+      } catch (err) {
+        console.warn('Notificação nativa indisponível', err)
+        return false
+      }
+    }
+
+    try {
+      if (typeof Notification === 'undefined') return false
+      if (Notification.permission === 'default') await Notification.requestPermission()
+      if (Notification.permission !== 'granted') return false
+      const n = new Notification(title, { body: body || '' })
+      n.onclick = () => { window.focus(); n.close() }
+      return true
+    } catch {
+      return false
+    }
+  },
+
+  /** Abre um link no navegador padrão. */
+  async openExternal (url) {
+    if (!url) return false
+    if (isTauri) return invoke('open_external', { url })
+    window.open(url, '_blank', 'noopener,noreferrer')
+    return true
+  },
+
+  /** Revela um arquivo/pasta no Finder (macOS) ou gerenciador de arquivos. */
+  async revealPath (path) {
+    if (!path) return false
+    if (isTauri) return invoke('reveal_path', { path })
+    return false
+  },
+
+  /** Pasta de dados do app (~/Library/Application Support/Investigando). */
+  async dataDir () {
+    if (isTauri) return invoke('data_dir_path')
+    return 'localStorage'
+  },
+
+  /**
+   * Observa o arquivo do projeto e chama handler(payload) quando ele muda
+   * no disco. Devolve a função para cancelar a observação.
+   */
+  async watchProject (path, handler) {
+    if (!isTauri) return () => {}
+    const fn = typeof handler === 'function' ? handler : () => {}
+    fileWatchers.add(fn)
+    await ensureFileListener()
+    if (path) await setWatchedProject(path)
+    return () => { fileWatchers.delete(fn) }
+  },
+
+  /** Troca o arquivo observado (ao abrir/salvar um projeto). */
+  async setWatchedProject (path) {
+    return setWatchedProject(path)
   }
 }

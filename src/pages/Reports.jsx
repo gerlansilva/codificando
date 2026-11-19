@@ -27,31 +27,34 @@ export default function Reports () {
     return () => clearTimeout(t)
   }, [printing])
 
-  const exportCodesCsv = () => {
+  const exportCodesCsv = async () => {
     const rows = [['Codigo', 'Trechos', 'Criado em']]
     for (const c of data.codes) {
       rows.push([c.name, data.excerpts.filter((e) => e.codeId === c.id).length, formatDate(c.createdAt)])
     }
-    download('investigando-codigos.csv', rows.map((r) => r.map(csvCell).join(',')).join('\n'), 'text/csv;charset=utf-8')
+    const ok = await download('investigando-codigos.csv', rows.map((r) => r.map(csvCell).join(',')).join('\n'), 'text/csv;charset=utf-8')
+    if (ok) bridge.notify('Exportação concluída', 'Planilha do codebook salva em investigando-codigos.csv.')
   }
 
-  const exportExcerptsCsv = () => {
+  const exportExcerptsCsv = async () => {
     const rows = [['Transcricao', 'Codigo', 'Inicio', 'Fim', 'Trecho']]
     for (const e of data.excerpts) {
       const t = data.transcripts.find((x) => x.id === e.transcriptId)
       const c = data.codes.find((x) => x.id === e.codeId)
       rows.push([t?.name, c?.name, e.start, e.end, e.text])
     }
-    download('investigando-trechos.csv', '\uFEFF' + rows.map((r) => r.map(csvCell).join(',')).join('\n'), 'text/csv;charset=utf-8')
+    const ok = await download('investigando-trechos.csv', '\uFEFF' + rows.map((r) => r.map(csvCell).join(',')).join('\n'), 'text/csv;charset=utf-8')
+    if (ok) bridge.notify('Exportação concluída', 'Trechos codificados salvos em investigando-trechos.csv.')
   }
 
-  const exportAllTxt = () => {
+  const exportAllTxt = async () => {
     const parts = data.transcripts.map((t) => {
       const ex = data.excerpts.filter((e) => e.transcriptId === t.id)
       const coded = ex.map((e) => `[${data.codes.find((c) => c.id === e.codeId)?.name}] ${e.text}`).join('\n')
       return `### ${t.name}\n\n${t.body}\n\n--- TRECHOS CODIFICADOS ---\n${coded}\n`
     })
-    download('investigando-documentos.txt', parts.join('\n====================\n\n'), 'text/plain;charset=utf-8')
+    const ok = await download('investigando-documentos.txt', parts.join('\n====================\n\n'), 'text/plain;charset=utf-8')
+    if (ok) bridge.notify('Exportação concluída', 'Transcrições e códigos salvos em investigando-documentos.txt.')
   }
 
   const byCode = data.codes

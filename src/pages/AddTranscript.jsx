@@ -35,10 +35,12 @@ export default function AddTranscript () {
     setBusy(true)
     setAlert(null)
 
+    let imported = 0
     for (const item of items) {
       try {
         const res = await importOneFile(item.file, createTranscript, list.length === 1 ? typed : '')
         if (!res.ok) throw new Error(res.error)
+        imported += 1
         setQueue((q) => (q ? q.map((x) => (x.id === item.id ? { ...x, status: 'ok', docId: res.id, title: res.name } : x)) : q))
       } catch (err) {
         console.error('Falha ao importar', item.name, err)
@@ -46,6 +48,14 @@ export default function AddTranscript () {
       }
     }
     setBusy(false)
+    if (imported > 0) {
+      bridge.notify(
+        'Importação concluída',
+        imported === 1
+          ? '1 documento adicionado ao projeto.'
+          : `${imported} documentos adicionados ao projeto.`
+      )
+    }
   }, [createTranscript, name])
 
   const openPicker = useCallback(async () => {

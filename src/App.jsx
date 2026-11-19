@@ -57,6 +57,7 @@ export function navigate (path) {
 export default function App () {
   const [route, setRoute] = useState(parseHash)
   const [saveError, setSaveError] = useState(null)
+  const [fileNotice, setFileNotice] = useState(null)
   const [data, setData] = useState(null)
   const [ready, setReady] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('investigando.sidebar') === 'collapsed')
@@ -73,6 +74,20 @@ export default function App () {
   useEffect(() => {
     localStorage.setItem('investigando.sidebar', collapsed ? 'collapsed' : 'open')
   }, [collapsed])
+
+  // aviso discreto quando o arquivo do projeto muda no disco (sem recarregar)
+  useEffect(() => {
+    if (!ready) return
+    let off = () => {}
+    let cancelled = false
+    bridge.watchProject(getProjectPath(), () => {
+      setFileNotice('O arquivo do projeto foi alterado no disco.')
+    }).then((fn) => {
+      if (cancelled) fn()
+      else off = fn
+    }).catch(() => {})
+    return () => { cancelled = true; off() }
+  }, [ready])
 
   // retoma no último documento: cai direto na área de codificação
   useEffect(() => {
@@ -377,6 +392,7 @@ export default function App () {
       setProjectPath(path)
       setSettings(saveSettings({ projectPath: path }))
       saveData(dataRef.current)
+      bridge.setWatchedProject(path)
       return path
     },
     saveNow () {
@@ -398,6 +414,7 @@ export default function App () {
       canSave.current = true
       setData(d)
       dataRef.current = d
+      bridge.setWatchedProject(path)
       navigate('/home')
       return path
     },
@@ -470,6 +487,12 @@ export default function App () {
           <strong>Não foi possível salvar o projeto.</strong>
           <span>{saveError}</span>
           <button onClick={retrySave}>Tentar de novo</button>
+        </div>
+      )}
+      {fileNotice && (
+        <div className="file-notice" role="status">
+          <span>{fileNotice} Reabra o projeto para carregar as mudanças.</span>
+          <button onClick={() => setFileNotice(null)}>Dispensar</button>
         </div>
       )}
       <div className={'app' + (collapsed ? ' sidebar-collapsed' : '')}>

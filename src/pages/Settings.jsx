@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useData } from '../App.jsx'
+import { bridge } from '../lib/bridge.js'
 
 /** Configurações gerais: quem sou eu e o projeto. Só o essencial. */
 export default function Settings () {
@@ -7,8 +8,10 @@ export default function Settings () {
   const [name, setName] = useState(data.project.name)
   const [description, setDescription] = useState(data.project.description || '')
   const [saved, setSaved] = useState(false)
+  const [dataFolder, setDataFolder] = useState('')
 
   useEffect(() => { setName(data.project.name); setDescription(data.project.description || '') }, [data.project.name, data.project.description])
+  useEffect(() => { bridge.dataDir().then((p) => setDataFolder(p || '')) }, [])
 
   const profile = {
     name: settings?.profile?.name || 'Gerlan Silva',
@@ -52,6 +55,26 @@ export default function Settings () {
             />
             <div className="settings-actions">
               <button className="btn btn--blue" onClick={save}>{saved ? 'Salvo' : 'Salvar'}</button>
+            </div>
+          </section>
+
+          <section className="settings-card">
+            <h2>Dados</h2>
+            <p className="sub">
+              O projeto e os arquivos anexados ficam guardados nesta pasta, no seu Mac.
+            </p>
+            <p className="sub" style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, wordBreak: 'break-all' }}>
+              {dataFolder || '…'}
+            </p>
+            <div className="settings-actions">
+              <button
+                className="btn"
+                disabled={!dataFolder || !bridge.isNative}
+                title={bridge.isNative ? 'Abrir a pasta no Finder' : 'Disponível apenas no app'}
+                onClick={() => bridge.revealPath(dataFolder)}
+              >
+                Mostrar pasta de dados
+              </button>
             </div>
           </section>
         </div>
