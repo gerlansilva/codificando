@@ -39,6 +39,48 @@ Artefatos:
 - `src-tauri/target/release/bundle/macos/Codificando.app`
 - `src-tauri/target/release/bundle/dmg/Codificando_0.2.0_aarch64.dmg`
 
+## Testes
+
+Os testes de unidade ficam em `src/lib/__tests__/` e usam Vitest. Cobrem a
+hierarquia de códigos, o parser de transcrições, a busca tolerante a acentos,
+os utilitários de página e as exportações DOCX/HTML.
+
+```bash
+npm test             # executa uma vez (vitest run)
+npm run test:watch   # modo observação
+npm run test:coverage # relatório de cobertura de src/lib
+```
+
+O ambiente padrão é `node`; apenas os testes que dependem de APIs do navegador
+declaram `// @vitest-environment jsdom` no topo do arquivo. A geração do DOCX
+roda em `node` e verifica que o Blob resultante tem bytes.
+
+## Instalador Windows
+
+Um `.exe`/`.msi` confiável precisa ser compilado no Windows (WebView2, MSI e
+NSIS), portanto não é gerado no macOS. O workflow `.github/workflows/ci.yml`
+faz isso no GitHub Actions:
+
+1. Envie a branch para o GitHub e abra um pull request (ou rode o workflow
+   manualmente em **Actions → CI → Run workflow**).
+2. O job `build-windows` roda em `windows-latest` e usa
+   `tauri-apps/tauri-action` para gerar os instaladores.
+3. Ao final, baixe o artefato `codificando-windows-installer` na página da
+   execução. Ele contém:
+   - `Codificando_0.2.0_x64-setup.exe` (NSIS)
+   - `Codificando_0.2.0_x64_en-US.msi` (MSI)
+
+O mesmo workflow também valida os testes (`test`), o `cargo check` (`rust`) e
+gera o `.dmg` no job `build-macos`, disponível no artefato
+`codificando-macos-dmg`.
+
+Para gerar localmente em uma máquina Windows:
+
+```bash
+npm ci
+npm run tauri build
+```
+
 ## Dados
 
 Os dados continuam em:
