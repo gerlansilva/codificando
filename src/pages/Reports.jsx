@@ -97,7 +97,9 @@ export default function Reports () {
             <div className="stat"><div className="n">{stats.codedTranscripts}</div><div className="l">documentos com código</div></div>
           </div>
 
-          <div className="report-actions">
+          <div className="report-export">
+            <span className="report-export-label">Exportar</span>
+            <div className="report-actions">
             <button className="btn" onClick={exportCodesCsv}>Codebook (.csv)</button>
             <button className="btn" onClick={exportExcerptsCsv}>Trechos codificados (.csv)</button>
             <button className="btn" onClick={exportAllTxt}>Transcrições + códigos (.txt)</button>
@@ -115,14 +117,14 @@ export default function Reports () {
             >
               {exporting === 'html' ? 'Gerando HTML…' : 'Exportar HTML'}
             </button>
+            </div>
           </div>
 
           {exportError && (
             <p style={{ color: 'var(--error-text)', fontSize: 13 }}>{exportError}</p>
           )}
 
-          <h2>Distribuição dos códigos</h2>
-          <p className="sub">Quantos trechos cada código reúne no projeto.</p>
+          <h2 className="report-section">Distribuição dos códigos</h2>
 
           {byCode.length === 0
             ? <p style={{ color: 'var(--text-muted)' }}>Nenhum trecho codificado ainda.</p>
@@ -150,8 +152,8 @@ export default function Reports () {
               </table>
             )}
 
-          <h2 style={{ marginTop: 34 }}>Trechos por documento</h2>
-          <table className="t-table" style={{ marginTop: 10 }}>
+          <h2 className="report-section">Trechos por documento</h2>
+          <table className="t-table">
             <thead>
               <tr><th>Transcrição</th><th style={{ width: 140 }}>Trechos</th><th style={{ width: 180 }}>Adicionada em</th></tr>
             </thead>
@@ -166,8 +168,8 @@ export default function Reports () {
             </tbody>
           </table>
 
-          <p style={{ marginTop: 28, fontSize: 12, color: 'var(--text-muted)' }}>
-            Dados salvos localmente em: {path || '…'}
+          <p className="report-foot" title={path || ''}>
+            Salvo localmente em {path || '…'}
           </p>
         </div>
       </div>

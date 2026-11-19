@@ -6,14 +6,14 @@ import Icon from '../components/Icon.jsx'
 
 /** Tela inicial do projeto (visão geral), no espírito do Home do Atlas.ti. */
 export default function Home () {
-  const { data, openProjectAt, openProject } = useData()
+  const { data, settings, openProjectAt, openProject } = useData()
   const [recents, setRecents] = useState(() => loadRecentProjects())
   const [opening, setOpening] = useState(null)
 
   // atualiza ao voltar para o Home ou trocar de projeto
   useEffect(() => { setRecents(loadRecentProjects()) }, [data.project.name])
 
-  const currentPath = getProjectPath()
+  const currentPath = getProjectPath() || settings?.projectPath || null
   const otherProjects = recents.filter((r) => r.path !== currentPath)
 
   const counts = useMemo(() => {
@@ -70,10 +70,10 @@ export default function Home () {
         </button>
       </div>
 
-      <div className="home-foot">
-        {modified && <span>Última alteração em {formatDate(modified)}</span>}
-        <span>Dados salvos localmente — sem envio para a rede.</span>
-      </div>
+      <p className="home-foot">
+        {modified && <span>Última alteração em {formatDate(modified)} · </span>}
+        <span>dados salvos localmente, sem envio para a rede.</span>
+      </p>
 
       <h2 className="home-section home-recent-title">Projetos recentes</h2>
       {otherProjects.length > 0

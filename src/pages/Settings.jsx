@@ -153,6 +153,12 @@ export default function Settings () {
 
       <div className="page">
         <div className="pane-page settings-page">
+          {!projectPath && (
+            <p className="settings-notice">
+              Este projeto ainda não foi salvo em um arquivo. Use <strong>⋯ → Salvar como…</strong> para habilitar senha e backups.
+            </p>
+          )}
+
           <section className="settings-card settings-me">
             <span className="me-avatar">{initials}</span>
             <div>
@@ -162,95 +168,113 @@ export default function Settings () {
           </section>
 
           <section className="settings-card">
-            <h2>Projeto</h2>
-            <label className="field-label">Nome</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} onBlur={save} />
-            <label className="field-label" style={{ marginTop: 14 }}>Descrição</label>
+            <div className="card-head">
+              <h2>Projeto</h2>
+              <div className="settings-actions">
+                <button className="btn btn--sm btn--blue" onClick={save}>{saved ? 'Salvo' : 'Salvar'}</button>
+              </div>
+            </div>
+            <label className="field-label" htmlFor="pj-name">Nome</label>
+            <input id="pj-name" className="input" value={name} onChange={(e) => setName(e.target.value)} onBlur={save} />
+            <label className="field-label settings-field-gap" htmlFor="pj-desc">Descrição</label>
             <textarea
+              id="pj-desc"
               className="settings-textarea"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onBlur={save}
               placeholder="Tema, recorte, objetivos…"
             />
-            <div className="settings-actions">
-              <button className="btn btn--blue" onClick={save}>{saved ? 'Salvo' : 'Salvar'}</button>
-            </div>
           </section>
 
           <section className="settings-card">
-            <h2>Dados</h2>
-            <p className="sub">
-              O projeto e os arquivos anexados ficam guardados nesta pasta, no seu Mac.
-            </p>
-            <p className="sub" style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, wordBreak: 'break-all' }}>
-              {dataFolder || '…'}
-            </p>
-            <div className="settings-actions">
-              <button
-                className="btn"
-                disabled={!dataFolder || !bridge.isNative}
-                title={bridge.isNative ? 'Abrir a pasta no Finder' : 'Disponível apenas no app'}
-                onClick={() => bridge.revealPath(dataFolder)}
-              >
-                Mostrar pasta de dados
-              </button>
+            <div className="card-head">
+              <h2>Dados</h2>
+              <div className="settings-actions">
+                <button
+                  className="btn btn--sm"
+                  disabled={!dataFolder || !bridge.isNative}
+                  title={bridge.isNative ? 'Abrir a pasta no Finder' : 'Disponível apenas no app'}
+                  onClick={() => bridge.revealPath(dataFolder)}
+                >
+                  Abrir no Finder
+                </button>
+              </div>
             </div>
+            <div className="settings-kv">
+              <span>Pasta</span>
+              <code title={dataFolder}>{dataFolder || '…'}</code>
+            </div>
+            <p className="sub settings-hint">Projeto e arquivos anexados ficam só neste Mac.</p>
           </section>
 
           <section className="settings-card">
-            <h2>Senha do projeto</h2>
+            <div className="card-head">
+              <h2>
+                Senha
+                {isProtected
+                  ? <span className="status-chip status-chip--ok">Protegido</span>
+                  : <span className="status-chip status-chip--muted">Sem proteção</span>}
+              </h2>
+              <div className="settings-actions">
+                {isProtected
+                  ? (
+                    <>
+                      <button className="btn btn--sm" disabled={!projectPath} onClick={() => openPasswordAction('change')}>
+                        Trocar
+                      </button>
+                      <button className="btn btn--sm" disabled={!projectPath} onClick={() => openPasswordAction('remove')}>
+                        Remover
+                      </button>
+                    </>
+                    )
+                  : (
+                    <button className="btn btn--sm" disabled={!projectPath} onClick={() => openPasswordAction('create')}>
+                      Proteger com senha
+                    </button>
+                    )}
+              </div>
+            </div>
             <p className="sub">
               {isProtected
-                ? 'Este projeto está protegido por senha. O arquivo é gravado cifrado (PBKDF2 + AES-GCM 256) e a senha não é armazenada em disco.'
-                : 'Sem proteção: o arquivo .investigando é um JSON simples, legível por qualquer pessoa com acesso a ele.'}
+                ? 'Arquivo cifrado com AES-GCM 256. A senha não é gravada em disco.'
+                : 'O arquivo .investigando é um JSON legível por quem tiver acesso a ele.'}
             </p>
-            {!projectPath && (
-              <p className="sub">Salve o projeto em um arquivo (“Salvar como…”) para poder protegê-lo.</p>
-            )}
-            <div className="settings-actions">
-              {isProtected
-                ? (
-                  <>
-                    <button className="btn" disabled={!projectPath} onClick={() => openPasswordAction('change')}>
-                      Trocar senha…
-                    </button>
-                    <button className="btn" disabled={!projectPath} onClick={() => openPasswordAction('remove')}>
-                      Remover senha…
-                    </button>
-                  </>
-                  )
-                : (
-                  <button className="btn" disabled={!projectPath} onClick={() => openPasswordAction('create')}>
-                    Proteger com senha…
-                  </button>
-                  )}
-            </div>
           </section>
 
           <section className="settings-card settings-backups">
-            <h2>Backups do projeto</h2>
+            <div className="card-head">
+              <h2>
+                Backups
+                {projectPath && backups.length > 0 && (
+                  <span className="status-chip status-chip--muted">{backups.length} de 20</span>
+                )}
+              </h2>
+              <div className="settings-actions">
+                <button className="btn btn--sm" disabled={busyId !== null} onClick={createBackup}>
+                  {busyId === 'create' ? 'Criando…' : 'Criar agora'}
+                </button>
+                <button className="btn btn--sm" disabled={loadingBackups || busyId !== null} onClick={refreshBackups}>
+                  Atualizar
+                </button>
+              </div>
+            </div>
+
             {!projectPath
-              ? <p className="sub">Salve o projeto em um arquivo (“Salvar como…”) para manter um histórico de versões.</p>
+              ? <p className="sub">Disponível depois de salvar o projeto em um arquivo.</p>
               : (
                 <>
                   <p className="sub">
-                    Até 20 versões automáticas, uma por minuto no máximo. Arquivo:{' '}
-                    <code title={projectPath}>{shortPath(projectPath, 64)}</code>
+                    Uma cópia automática a cada salvamento, no máximo uma por minuto.
                   </p>
-                  {isProtected && (
-                    <p className="sub">
-                      Os backups são cópias exatas do arquivo: os de um projeto protegido continuam cifrados.
-                    </p>
-                  )}
 
                   {backupError && <p className="settings-error">{backupError}</p>}
                   {backupMsg && <p className="settings-note">{backupMsg}</p>}
 
                   {loadingBackups
-                    ? <p className="sub">Carregando backups…</p>
+                    ? <p className="sub">Carregando…</p>
                     : backups.length === 0
-                      ? <p className="sub">Nenhum backup ainda. Ele é criado automaticamente ao salvar o projeto.</p>
+                      ? <p className="sub">Nenhum backup ainda.</p>
                       : (
                         <ul className="backup-list">
                           {backups.map((b) => (
@@ -278,23 +302,32 @@ export default function Settings () {
                         </ul>
                       )}
 
-                  <div className="settings-actions">
-                    <button className="btn" disabled={busyId !== null} onClick={createBackup}>
-                      {busyId === 'create' ? 'Criando…' : 'Criar backup agora'}
-                    </button>
-                    <button className="btn" disabled={loadingBackups || busyId !== null} onClick={refreshBackups}>
-                      Atualizar lista
-                    </button>
-                  </div>
+                  <details className="settings-more">
+                    <summary>Como funciona</summary>
+                    <p>Restaurar sobrescreve o projeto com a versão escolhida; o estado atual é guardado antes como um novo backup.</p>
+                    <p>Os backups são cópias exatas do arquivo{isProtected ? ' — permanecem cifrados' : ''}. Arquivo: <code title={projectPath}>{shortPath(projectPath, 72)}</code></p>
+                  </details>
                 </>
               )}
           </section>
+
           <section className="settings-card settings-updates">
-            <h2>Versão e atualizações</h2>
-            <p className="sub">
-              {appVersion ? `Versão ${appVersion}.` : ''} O Codificando só consulta atualizações quando você pede.
-              Seus projetos continuam funcionando offline.
-            </p>
+            <div className="card-head">
+              <h2>
+                Versão
+                {appVersion && <span className="status-chip status-chip--muted">{appVersion}</span>}
+              </h2>
+              <div className="settings-actions">
+                <button
+                  className="btn btn--sm"
+                  disabled={!canUpdate || update.status === 'checking' || update.status === 'downloading'}
+                  onClick={verifyUpdates}
+                >
+                  {update.status === 'checking' ? 'Verificando…' : 'Verificar atualizações'}
+                </button>
+              </div>
+            </div>
+            <p className="sub">A verificação é manual; o app continua funcionando offline.</p>
 
             {update.status === 'latest' && (
               <p className="settings-note">Você está na versão mais recente.</p>
@@ -303,39 +336,34 @@ export default function Settings () {
 
             {update.status === 'available' && (
               <div className="settings-update-available">
-                <p>
-                  <strong>Nova versão disponível: {update.version}</strong>
-                  {update.currentVersion ? ` (você tem a ${update.currentVersion})` : ''}
+                <p className="settings-update-title">
+                  Nova versão: {update.version}
+                  {update.currentVersion ? ` (atual: ${update.currentVersion})` : ''}
                 </p>
                 {update.notes && <pre className="settings-update-notes">{update.notes}</pre>}
-                <p className="sub">
-                  Baixe e instale quando quiser. O app não baixa nada sozinho.
-                </p>
                 <div className="settings-actions">
-                  <button className="btn btn--blue" onClick={startUpdate}>
+                  <button className="btn btn--sm btn--blue" onClick={startUpdate}>
                     Baixar e instalar
                   </button>
-                  <button className="btn" onClick={cancelUpdate}>Agora não</button>
+                  <button className="btn btn--sm" onClick={cancelUpdate}>Agora não</button>
                 </div>
               </div>
             )}
 
             {update.status === 'downloading' && (
               <p className="settings-note">
-                {`Baixando a versão ${update.version}… `}
+                {`Baixando ${update.version}… `}
                 {update.percent === null || update.percent === undefined ? '' : `${update.percent}%`}
-                {' '}Não feche o app durante a instalação.
+                {' '}Não feche o app.
               </p>
             )}
 
             {update.status === 'installed' && (
               <>
-                <p className="settings-note">
-                  {`Atualização ${update.version} instalada. Reinicie o Codificando para usar a nova versão.`}
-                </p>
+                <p className="settings-note">{`Atualização ${update.version} instalada.`}</p>
                 <div className="settings-actions">
                   <button
-                    className="btn btn--blue"
+                    className="btn btn--sm btn--blue"
                     onClick={() => relaunchApp().catch(() => flash('Feche e abra o Codificando manualmente.'))}
                   >
                     Reiniciar agora
@@ -345,18 +373,8 @@ export default function Settings () {
             )}
 
             {!canUpdate && (
-              <p className="sub">Disponível apenas no app instalado, não no navegador de desenvolvimento.</p>
+              <p className="sub settings-hint">Disponível apenas no app instalado, não no navegador.</p>
             )}
-
-            <div className="settings-actions">
-              <button
-                className="btn"
-                disabled={!canUpdate || update.status === 'checking' || update.status === 'downloading'}
-                onClick={verifyUpdates}
-              >
-                {update.status === 'checking' ? 'Verificando…' : 'Verificar atualizações'}
-              </button>
-            </div>
           </section>
         </div>
       </div>

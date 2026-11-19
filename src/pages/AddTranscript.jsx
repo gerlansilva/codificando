@@ -101,9 +101,9 @@ export default function AddTranscript () {
 
       <div className="page">
         <div className="import-page">
-          <div className="flow-hint">
-            Envie PDF, Word, TXT ou RTF. Se o texto tiver falantes (“Nome:”), o editor mostra os diálogos por falante.
-          </div>
+          <p className="flow-hint">
+            Aceita PDF, DOC, DOCX, TXT e RTF. Diálogos no formato <code>Nome: fala</code> aparecem separados por falante.
+          </p>
 
           <label className="field-label" htmlFor="tname">Nome do documento</label>
           <input
@@ -129,8 +129,12 @@ export default function AddTranscript () {
             }}
           >
             <div className="dropzone-title">Arraste um documento</div>
-            <div className="dropzone-title" style={{ fontSize: 30 }}>aceita .pdf, .doc, .docx, .txt ou .rtf</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>clique ou arraste para enviar</div>
+            <div className="dropzone-formats">
+              {['.pdf', '.doc', '.docx', '.txt', '.rtf'].map((ext) => (
+                <span key={ext} className="dropzone-ext">{ext}</span>
+              ))}
+            </div>
+            <div className="dropzone-sub">clique ou arraste para enviar</div>
             <div style={{ marginTop: 18 }}>
               <span className="btn btn--sm">Escolher arquivos…</span>
             </div>

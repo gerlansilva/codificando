@@ -113,9 +113,9 @@ export default function Comments () {
           )
           : (
             <div className="pane-page" style={{ maxWidth: 1180 }}>
-              <p className="sub" style={{ marginBottom: 10 }}>
+              <p className="sub" style={{ marginBottom: 10 }} title="Clique para abrir o trecho no documento.">
                 {rows.length} comentário{rows.length === 1 ? '' : 's'}
-                {q.trim() ? ` de ${all.length}` : ''} · clique para abrir o trecho no documento
+                {q.trim() ? ` de ${all.length}` : ''}
               </p>
 
               <table className="quote-table">

@@ -102,7 +102,9 @@ export default function Transcripts () {
           : (
             <div className="list-wrap">
               <div className="list-head">
-                <h2>Todos os documentos</h2>
+                <span className="count count--lead">
+                  {items.length} {items.length === 1 ? 'documento' : 'documentos'}
+                </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {groups.length > 0 && (
                     <select className="input" style={{ width: 130, padding: '6px 10px' }} value={group} onChange={(e) => setGroup(e.target.value)}>
@@ -122,9 +124,6 @@ export default function Transcripts () {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
-                  <span className="count">
-                    {items.length} {items.length === 1 ? 'documento' : 'documentos'}
-                  </span>
                 </div>
               </div>
               <table className="t-table">
@@ -188,8 +187,8 @@ export default function Transcripts () {
                           {t.rendererType === 'pdf' && (
                             <span className="badge-pdf">PDF · {t.pageCount || '?'} p.</span>
                           )}
-                          {t.rendererType !== 'pdf' && (
-                            <span className="badge-doc">{t.name.split('.').pop()?.toUpperCase()}</span>
+                          {t.rendererType !== 'pdf' && /\.[a-z0-9]{2,4}$/i.test(t.name) && (
+                            <span className="badge-doc">{(t.name.match(/\.([a-z0-9]{2,4})$/i) || [])[1].toUpperCase()}</span>
                           )}
                         </td>
                         <td>{count}</td>

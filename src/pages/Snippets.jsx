@@ -193,10 +193,9 @@ export default function Snippets () {
           )
           : (
             <div className="pane-page" style={{ maxWidth: 1180 }}>
-              <p className="sub" style={{ marginBottom: 10 }}>
+              <p className="sub" style={{ marginBottom: 10 }} title="Clique para abrir no documento; botão direito para ações.">
                 {filtered.length} citaç{filtered.length === 1 ? 'ão' : 'ões'}
                 {filtered.length > 500 ? ' · mostrando as 500 primeiras' : ''}
-                {' '}· clique para abrir no documento · botão direito para ações
               </p>
 
               {selected.size > 0 && (
