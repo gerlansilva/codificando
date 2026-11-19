@@ -1,9 +1,8 @@
 import React, { useState } from 'react'
-import { Avatar, BUILTIN_AVATARS } from './Avatars.jsx'
 
-/** Projeto: nome, descrição, arquivo (novo/abrir/salvar como) e avatar. */
+/** Projeto: nome, descrição e arquivo (novo/abrir/salvar como). */
 export default function ProjectModal ({
-  project, avatarRef, avatars, path, onClose, onSaveMeta, onNew, onOpen, onSaveAs, onAddAvatars, onSelectAvatar, onClearAvatar
+  project, path, onClose, onSaveMeta, onNew, onOpen, onSaveAs
 }) {
   const [name, setName] = useState(project.name || '')
   const [description, setDescription] = useState(project.description || '')
@@ -48,36 +47,6 @@ export default function ProjectModal ({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-
-        <label className="field-label">Avatar</label>
-        <div className="avatar-row">
-          <Avatar srcRef={avatarRef} size={48} />
-          <button className="btn btn--sm" onClick={onAddAvatars}>Adicionar imagens…</button>
-          {avatarRef && <button className="btn btn--sm" onClick={onClearAvatar}>Remover</button>}
-          <span className="avatar-hint">suas imagens, sem alteração — só recorte circular</span>
-        </div>
-        <div className="avatar-grid" style={{ marginTop: 10 }}>
-          {BUILTIN_AVATARS.map((a) => (
-            <button
-              key={a.builtin}
-              className={'avatar-option' + (avatarRef?.builtin === a.builtin ? ' active' : '')}
-              title={a.name}
-              onClick={() => onSelectAvatar({ builtin: a.builtin, name: a.name })}
-            >
-              <Avatar srcRef={{ builtin: a.builtin }} size={40} />
-            </button>
-          ))}
-          {avatars?.length > 0 && avatars.map((a, i) => (
-              <button
-                key={i}
-                className={'avatar-option' + (avatarRef?.key === a.key ? ' active' : '')}
-                title={a.name}
-                onClick={() => onSelectAvatar(a)}
-              >
-                <Avatar srcRef={a} size={40} />
-            </button>
-          ))}
-        </div>
 
         <div className="project-actions">
           <button
