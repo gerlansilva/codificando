@@ -20,6 +20,49 @@ Não há certificado de desenvolvedor (assinatura de código) — o app é gratu
 mensalidade nem conta em loja. No macOS, abra com botão direito → Abrir; no Windows, se o
 SmartScreen avisar, use “Mais informações → Executar assim mesmo”.
 
+## Capturas
+
+Visão do projeto, com os documentos na barra lateral e os números do estudo.
+
+![Página do projeto](docs/manual/capturas/home.png)
+
+Codificação direta sobre a página do PDF, com os códigos à mão e os trechos já marcados.
+
+![Editor de PDF com citações](docs/manual/capturas/editor.png)
+
+Codebook hierárquico, com cores, definições e contagem por código.
+
+![Codebook](docs/manual/capturas/codes.png)
+
+Trechos codificados, filtráveis por código, documento e busca.
+
+![Trechos](docs/manual/capturas/snippets.png)
+
+Consultas salvas que combinam códigos e respondem "quais trechos sustentam esta afirmação".
+
+![Consultas](docs/manual/capturas/consultas.png)
+
+Rede de relações: coocorrência de códigos, citações e vínculos nomeados, com foco por código
+e exportação em SVG, PNG ou figura de artigo de 16 cm.
+
+![Redes de relações](docs/manual/capturas/networks.png)
+
+Relatórios com contagens, trechos por código e exportação para DOCX, Markdown e impressão.
+
+![Relatórios](docs/manual/capturas/reports.png)
+
+Busca global em documentos, códigos, trechos e comentários.
+
+![Busca](docs/manual/capturas/search.png)
+
+Comentários e memos analíticos vinculados a documentos, códigos ou trechos.
+
+![Comentários](docs/manual/capturas/comments.png)
+
+Configurações, dados, backups e verificação manual de atualizações.
+
+![Configurações](docs/manual/capturas/settings.png)
+
 ## Requisitos
 
 - macOS 11+ ou Windows 10/11 (x64)
