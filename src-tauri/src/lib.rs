@@ -9,6 +9,8 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
+mod backup;
+
 /** Watcher do arquivo do projeto: no máximo um por vez. */
 struct WatchState {
     watcher: Mutex<Option<RecommendedWatcher>>,
@@ -400,7 +402,11 @@ pub fn run() {
             convert_document,
             open_external,
             reveal_path,
-            watch_project
+            watch_project,
+            backup::backup_create,
+            backup::backup_list,
+            backup::backup_restore,
+            backup::backup_delete
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

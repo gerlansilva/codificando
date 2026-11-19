@@ -288,5 +288,34 @@ export const bridge = {
   /** Troca o arquivo observado (ao abrir/salvar um projeto). */
   async setWatchedProject (path) {
     return setWatchedProject(path)
+  },
+
+  /* backups locais do arquivo de projeto */
+  async backupCreate (path) {
+    if (isTauri) return invoke('backup_create', { path })
+    if (wk) return callWk('backup.create', { path })
+    if (electron?.backupCreate) return electron.backupCreate(path)
+    return null
+  },
+
+  async backupList (path) {
+    if (isTauri) return invoke('backup_list', { path })
+    if (wk) return callWk('backup.list', { path })
+    if (electron?.backupList) return electron.backupList(path)
+    return []
+  },
+
+  async backupRestore (path, id) {
+    if (isTauri) return invoke('backup_restore', { path, id })
+    if (wk) return callWk('backup.restore', { path, id })
+    if (electron?.backupRestore) return electron.backupRestore(path, id)
+    return false
+  },
+
+  async backupDelete (path, id) {
+    if (isTauri) return invoke('backup_delete', { path, id })
+    if (wk) return callWk('backup.delete', { path, id })
+    if (electron?.backupDelete) return electron.backupDelete(path, id)
+    return false
   }
 }

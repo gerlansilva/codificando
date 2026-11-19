@@ -8,10 +8,49 @@ import { bridge } from '../lib/bridge.js'
 
 const KEY = 'investigando.data.v1'
 const SETTINGS_KEY = 'investigando.settings.v1'
+const RECENT_KEY = 'codificando.recentProjects'
+const MAX_RECENT = 10
 
 let currentPath = null
 export function setProjectPath (p) { currentPath = p }
 export function getProjectPath () { return currentPath }
+
+/* ---------------- projetos recentes ---------------- */
+
+export function loadRecentProjects () {
+  try {
+    const list = JSON.parse(localStorage.getItem(RECENT_KEY))
+    return Array.isArray(list)
+      ? list.filter((r) => r && typeof r.path === 'string' && r.path)
+      : []
+  } catch { return [] }
+}
+
+/** Registra/atualiza um projeto no topo da lista de recentes (máx. 10). */
+export function touchRecentProject (path, name) {
+  if (!path) return loadRecentProjects()
+  const previous = loadRecentProjects().filter((r) => r.path !== path)
+  const item = {
+    path,
+    name: (name || '').trim() || 'Projeto sem título',
+    at: new Date().toISOString()
+  }
+  const next = [item, ...previous].slice(0, MAX_RECENT)
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)) } catch { /* noop */ }
+  return next
+}
+
+/** Caminho curto para exibição: ~/…/pasta/arquivo.investigando */
+export function shortPath (path, max = 46) {
+  if (!path) return ''
+  const home = path.replace(/^\/Users\/[^/]+\//, '~/')
+  if (home.length <= max) return home
+  const parts = home.split('/')
+  if (parts.length <= 3) return home
+  const tail = parts.slice(-2).join('/')
+  return parts[0] + '/…/' + tail
+}
+
 
 export function loadSettings () {
   try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {} } catch { return {} }
@@ -90,6 +129,11 @@ async function flush () {
       localStorage.setItem(KEY, JSON.stringify(snapshot))
     }
     if (ok === false) throw new Error('o arquivo do projeto não foi gravado')
+    if (currentPath) {
+      touchRecentProject(currentPath, snapshot?.project?.name)
+      // backup best-effort: não bloqueia nem falha o salvamento
+      Promise.resolve(bridge.backupCreate(currentPath)).catch(() => {})
+    }
     emitSave({ ok: true, at: Date.now() })
   } catch (err) {
     console.error('Falha ao salvar (flush)', err)
