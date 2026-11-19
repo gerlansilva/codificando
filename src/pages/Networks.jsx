@@ -4,13 +4,15 @@ import { bridge } from '../lib/bridge.js'
 import {
   buildNetwork,
   edgeGeometry,
+  edgeLabelPos,
   edgeStyle,
   edgeWidth,
   isDirected,
   nodeLabelLayout,
+  nodeSize,
+  sizeNodes,
   RELATION_TEXT,
   layoutNetwork,
-  layoutRadial,
   networkSvg,
   nodeRadius
 } from '../lib/network.js'
@@ -63,7 +65,8 @@ export default function Networks () {
   const [showQuotes, setShowQuotes] = useState(true)
   const [showDocs, setShowDocs] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
-  const [layoutMode, setLayoutMode] = useState('force')
+  const [quoteMode, setQuoteMode] = useState('short')
+  const [boxScale, setBoxScale] = useState(1)
   const [view, setView] = useState('coding')
   const [selected, setSelected] = useState(null)
   const [zoom, setZoom] = useState(1)
@@ -93,10 +96,10 @@ export default function Networks () {
   // Arrastar um nó não pode disparar um novo layout — por isso o seed separado.
   const nodes = useMemo(() => {
     const copy = network.nodes.map((n) => ({ ...n }))
-    if (layoutMode === 'radial') layoutRadial(copy, network.edges, { width: W, height: H })
-    else layoutNetwork(copy, network.edges, { width: W, height: H })
+    sizeNodes(copy, { quotes: quoteMode, scale: boxScale })
+    layoutNetwork(copy, network.edges, { width: W, height: H })
     return copy
-  }, [network, layoutMode, layoutSeed])
+  }, [network, layoutSeed, quoteMode, boxScale])
 
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
   const neighbours = useMemo(() => {
@@ -113,7 +116,7 @@ export default function Networks () {
   const selectedNode = selected ? byId.get(selected) : null
   const highlighted = selected ? (neighbours.get(selected) || new Set()) : null
 
-  useEffect(() => { setSelected(null) }, [layoutMode, view])
+  useEffect(() => { setSelected(null) }, [view])
   useEffect(() => { setConfirmRemove(false) }, [selected])
 
   const flash = (message) => {
@@ -448,14 +451,27 @@ export default function Networks () {
                 <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
                 Rótulos
               </label>
-              <span className="net-sep" />
-              <label className="net-field">
-                <span>Layout</span>
-                <select className="input" value={layoutMode} onChange={(e) => setLayoutMode(e.target.value)}>
-                  <option value="force">Força</option>
-                  <option value="radial">Radial</option>
-                </select>
-              </label>
+              {view === 'coding' && showQuotes && (
+                <>
+                  <span className="net-sep" />
+                  <label className="net-field">
+                    <span>Citações</span>
+                    <select className="input" value={quoteMode} onChange={(e) => setQuoteMode(e.target.value)}>
+                      <option value="dot">Pontos</option>
+                      <option value="short">Trecho curto</option>
+                      <option value="text">Trecho</option>
+                    </select>
+                  </label>
+                  <label className="net-field">
+                    <span>Tamanho</span>
+                    <select className="input" value={boxScale} onChange={(e) => setBoxScale(Number(e.target.value))}>
+                      <option value="0.85">Pequeno</option>
+                      <option value="1">Médio</option>
+                      <option value="1.15">Grande</option>
+                    </select>
+                  </label>
+                </>
+              )}
             </div>
             <span className="net-count">
               {view === 'cooccurrence'
@@ -532,17 +548,21 @@ export default function Networks () {
                               strokeDasharray={style.dash || undefined}
                               markerEnd={arrow}
                             />
-                            {showLabels && e.type && e.kind !== 'hierarchy' && (
-                              <text className="net-edge-label" x={g.midX} y={g.midY - 5} textAnchor="middle">
-                                {e.label || RELATION_TEXT[e.type] || e.type}
-                              </text>
-                            )}
+                            {showLabels && e.type && e.kind !== 'hierarchy' && (() => {
+                              const pos = edgeLabelPos(a, b, nodes)
+                              return (
+                                <text className="net-edge-label" x={pos.x} y={pos.y} textAnchor="middle">
+                                  {e.label || RELATION_TEXT[e.type] || e.type}
+                                </text>
+                              )
+                            })()}
                           </g>
                         )
                       })}
 
                       {nodes.map((n) => {
                         const r = nodeRadius(n)
+                        const box = nodeSize(n)
                         const isSelected = selected === n.id
                         const isNeighbour = highlighted?.has(n.id)
                         const dim = selected && !isSelected && !isNeighbour
@@ -561,30 +581,84 @@ export default function Networks () {
                               {n.kind === 'code'
                                 ? `${n.label} — ${n.weight} trecho${n.weight === 1 ? '' : 's'} codificado${n.weight === 1 ? '' : 's'}`
                                 : n.kind === 'quote'
-                                  ? `${n.label}${n.docName ? ` — ${n.docName}` : ''}${n.page ? `, p. ${n.page}` : ''}`
+                                  ? `${n.text || n.label}${n.docName ? ` — ${n.docName}` : ''}${n.page ? `, p. ${n.page}` : ''}`
                                   : n.label}
                             </title>
-                            {n.kind === 'code' && (
-                              <circle cx={n.x} cy={n.y} r={r + 2} fill="none" stroke={n.color} strokeOpacity="0.3" strokeWidth="1.4" />
-                            )}
-                            <circle
-                              cx={n.x}
-                              cy={n.y}
-                              r={r}
-                              fill={n.color}
-                              stroke={isSelected ? '#15294b' : '#fff'}
-                              strokeWidth={isSelected ? 2.4 : n.kind === 'quote' ? 0.8 : 1.6}
-                            />
-                            {showLabels && (n.kind !== 'quote' || isSelected || isNeighbour) && (() => {
+                            {box
+                              ? (
+                                <>
+                                  {n.kind === 'code' && (
+                                    <rect
+                                      x={n.x - box.w / 2 - 2.5}
+                                      y={n.y - box.h / 2 - 2.5}
+                                      width={box.w + 5}
+                                      height={box.h + 5}
+                                      rx={box.radius + 2}
+                                      fill="none"
+                                      stroke={n.color}
+                                      strokeOpacity="0.3"
+                                      strokeWidth="1.4"
+                                    />
+                                  )}
+                                  <rect
+                                    x={n.x - box.w / 2}
+                                    y={n.y - box.h / 2}
+                                    width={box.w}
+                                    height={box.h}
+                                    rx={box.radius}
+                                    fill={n.kind === 'quote' ? '#fff' : n.color}
+                                    stroke={isSelected ? '#15294b' : n.kind === 'quote' ? n.color : '#fff'}
+                                    strokeWidth={isSelected ? 2.4 : n.kind === 'quote' ? 1.1 : 1.6}
+                                  />
+                                  {n.kind === 'quote' && (
+                                    <rect
+                                      x={n.x - box.w / 2}
+                                      y={n.y - box.h / 2}
+                                      width={3}
+                                      height={box.h}
+                                      rx={1.5}
+                                      fill={n.color}
+                                    />
+                                  )}
+                                </>
+                                )
+                              : (
+                                <circle
+                                  cx={n.x}
+                                  cy={n.y}
+                                  r={r}
+                                  fill={n.color}
+                                  stroke={isSelected ? '#15294b' : '#fff'}
+                                  strokeWidth={isSelected ? 2.4 : n.kind === 'quote' ? 0.8 : 1.6}
+                                />
+                                )}
+                            {showLabels && (box || n.kind !== 'quote' || isSelected || isNeighbour) && (() => {
                               const pos = nodeLabelLayout(n, W)
+                              if (pos.inside && pos.lines.length > 1) {
+                                return (
+                                  <text
+                                    textAnchor="middle"
+                                    style={{ fontSize: pos.size }}
+                                    className={'net-label net-label--' + n.kind}
+                                  >
+                                    {pos.lines.map((line, i) => (
+                                      <tspan key={i} x={pos.x} y={pos.y + i * pos.lineHeight}>{line}</tspan>
+                                    ))}
+                                  </text>
+                                )
+                              }
+                              const text = pos.inside
+                                ? pos.lines[0]
+                                : n.label.length > 42 ? n.label.slice(0, 41) + '…' : n.label
                               return (
                                 <text
                                   x={pos.x}
                                   y={pos.y}
                                   textAnchor={pos.anchor}
+                                  style={pos.inside ? { fontSize: pos.size } : undefined}
                                   className={'net-label net-label--' + n.kind}
                                 >
-                                  {n.label.length > 42 ? n.label.slice(0, 41) + '…' : n.label}
+                                  {text}
                                 </text>
                               )
                             })()}
@@ -613,8 +687,10 @@ export default function Networks () {
                       <li>Use a roda do mouse para aproximar.</li>
                     </ul>
                     <div className="net-legend">
-                      <span><i className="net-dot" style={{ background: '#4A90E2' }} /> Código</span>
-                      <span><i className="net-dot net-dot--small" style={{ background: '#7BB661' }} /> Trecho</span>
+                      <span><i className="net-swatch net-swatch--code" /> Código</span>
+                      <span>
+                        <i className={quoteMode === 'dot' ? 'net-dot net-dot--small' : 'net-swatch net-swatch--quote'} style={{ background: quoteMode === 'dot' ? '#7BB661' : undefined }} /> Trecho
+                      </span>
                       <span><i className="net-dot net-dot--doc" /> Documento</span>
                     </div>
                     <p className="sub">Duplo clique abre o item de origem.</p>

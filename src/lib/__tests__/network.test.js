@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildNetwork,
+  edgeGeometry,
+  edgeLabelPos,
   edgeStyle,
   edgeWidth,
+  nodeSize,
+  sizeNodes,
   layoutNetwork,
   layoutRadial,
   networkSvg,
@@ -192,7 +196,8 @@ describe('networkSvg', () => {
     expect(svg).toContain('xmlns="http://www.w3.org/2000/svg"')
     expect(svg).toContain('Rede &amp; afins')
     expect(svg).toContain('3 códigos · 2 trechos')
-    expect(svg.match(/<circle/g).length).toBeGreaterThanOrEqual(5)
+    expect(svg.match(/<circle/g).length).toBeGreaterThanOrEqual(3)
+    expect(svg.match(/<rect/g).length).toBeGreaterThanOrEqual(3)
   })
 
   it('aplica a escala de exportação sem alterar o viewBox', () => {
@@ -211,6 +216,81 @@ describe('networkSvg', () => {
     expect(noLabels).not.toContain('Mediação docente')
     const withLabels = networkSvg(nodes, net.edges, { width: 600, height: 400 })
     expect(withLabels).toContain('Mediação docente')
+  })
+})
+
+describe('caixas de código e citação', () => {
+  const sized = (opts = {}) => sizeNodes(
+    buildNetwork(data).nodes.map((n) => ({ ...n })),
+    opts
+  )
+
+  it('desenha o código como caixa e leva o nome para dentro', () => {
+    const nodes = sized()
+    const code = nodes.find((n) => n.kind === 'code' && n.refId === 'c1')
+    expect(nodeSize(code).w).toBeGreaterThan(0)
+    expect(code.lines.join(' ')).toBe('Mediação docente')
+    expect(nodeSize(code).font).toBeGreaterThan(0)
+  })
+
+  it('quebra nomes longos em duas linhas em vez de esticar a caixa', () => {
+    const nodes = sizeNodes(
+      [{ id: 'c:c1', kind: 'code', label: 'Formalização depois da tentativa', weight: 4 }],
+      { quotes: 'dot' }
+    )
+    expect(nodes[0].lines).toHaveLength(2)
+    expect(nodeSize(nodes[0]).w).toBeLessThanOrEqual(168)
+  })
+
+  it('mostra o começo do trecho na citação e aceita o modo ponto', () => {
+    const nodes = sized({ quotes: 'short' })
+    const quote = nodes.find((n) => n.kind === 'quote')
+    expect(quote.lines).toHaveLength(1)
+    expect(quote.lines[0].length).toBeGreaterThan(10)
+    expect(nodeSize(quote).h).toBeLessThan(40)
+
+    const dots = sized({ quotes: 'dot' })
+    expect(dots.filter((n) => n.kind === 'quote').every((n) => n.box === null)).toBe(true)
+  })
+
+  it('respeita a escala pequena e grande', () => {
+    const small = sized({ scale: 0.85 }).find((n) => n.kind === 'code')
+    const large = sized({ scale: 1.15 }).find((n) => n.kind === 'code')
+    expect(nodeSize(small).w).toBeLessThan(nodeSize(large).w)
+    expect(nodeSize(small).font).toBeLessThan(nodeSize(large).font)
+  })
+
+  it('encurta a seta até a borda da caixa', () => {
+    const a = { id: 'c:a', kind: 'code', x: 100, y: 100, box: { w: 100, h: 40 } }
+    const b = { id: 'c:b', kind: 'code', x: 300, y: 100, box: { w: 100, h: 40 } }
+    const g = edgeGeometry(a, b, { kind: 'codeLink' })
+    expect(g.x2).toBeLessThan(b.x - 45)
+    expect(g.x2).toBeGreaterThan(b.x - 60)
+  })
+
+  it('afasta o rótulo da aresta dos nós no meio do caminho', () => {
+    const a = { id: 'c:a', kind: 'code', x: 100, y: 100, box: { w: 120, h: 40 } }
+    const b = { id: 'c:b', kind: 'code', x: 400, y: 100, box: { w: 120, h: 40 } }
+    const pos = edgeLabelPos(a, b, [a, b])
+    expect(pos.x).toBeGreaterThan(a.x)
+    expect(pos.x).toBeLessThan(b.x)
+    expect(pos.y).toBeLessThan(100)
+  })
+
+  it('exporta o texto da citação dentro do cartão', () => {
+    const long = {
+      ...data,
+      excerpts: [{
+        ...data.excerpts[0],
+        text: 'A professora retoma a fala da criança, escreve no quadro e pergunta quem concorda com a explicação.'
+      }],
+      quoteLinks: []
+    }
+    const nodes = sizeNodes(buildNetwork(long).nodes.map((n) => ({ ...n })), { quotes: 'text' })
+    const laid = layoutNetwork(nodes, [], { width: 600, height: 400 })
+    const svg = networkSvg(laid, [], { width: 600, height: 400 })
+    expect(svg).toContain('A professora retoma a fala')
+    expect(svg).toContain('<tspan')
   })
 })
 

@@ -783,7 +783,7 @@
 
   <figure>
     <img src="capturas/networks.png" alt="Rede de relações com códigos e trechos">
-    <figcaption><b>Redes.</b> Cada círculo é um nó; cada linha é uma relação, com seta quando tem direção. Ao clicar em um código, o painel da direita lista os conectados, os vínculos nomeados e os trechos codificados.</figcaption>
+    <figcaption><b>Redes.</b> Códigos aparecem como caixas e citações como cartões com o início do trecho; cada linha é uma relação, com seta quando tem direção. Ao clicar em um código, o painel da direita lista os conectados, os vínculos nomeados e os trechos codificados.</figcaption>
   </figure>
   </div>
 
@@ -798,8 +798,8 @@
 
   <h3>O que aparece na rede</h3>
   <ul>
-    <li><strong>Códigos</strong> — o tamanho do círculo cresce com o número de trechos codificados. Códigos-filho aparecem ligados ao código-pai por uma linha tracejada.</li>
-    <li><strong>Trechos</strong> — pontos pequenos, na cor do código. Cada trecho se liga aos códigos que o marcam.</li>
+    <li><strong>Códigos</strong> — caixas na cor do código, com o nome dentro. O tamanho cresce com o número de trechos codificados e nomes longos quebram em duas linhas. Códigos-filho aparecem ligados ao código-pai por uma linha tracejada.</li>
+    <li><strong>Trechos</strong> — cartões com o começo do texto selecionado, na cor do código, ou pontos pequenos no modo compacto. Cada trecho se liga aos códigos que o marcam.</li>
     <li><strong>Documentos</strong> — opcionais. Quando exibidos, cada trecho se liga também ao documento de origem.</li>
   </ul>
   <p>
@@ -824,14 +824,28 @@
     <li><strong>Remover trecho</strong> apaga as codificações daquele trecho, mas não altera o texto do documento.</li>
   </ul>
 
+  <h3>Regular o tamanho e o texto</h3>
+  <p>
+    Dois controles decidem quanto texto aparece. <strong>Citações</strong> oferece
+    <strong>Pontos</strong> (só os nós, para redes grandes), <strong>Trecho curto</strong>
+    (uma linha com o começo da citação) e <strong>Trecho</strong> (até quatro linhas, como os
+    cartões do atlas.ti). <strong>Tamanho</strong> reduz ou amplia as caixas em três níveis —
+    útil para caber mais conteúdo sem sobreposição. A rede é reorganizada a cada mudança, e o
+    texto completo de cada citação continua disponível no painel e ao passar o mouse.
+  </p>
+
   <h3>Navegar e ajustar</h3>
   <p>
     Use os filtros do alto para mostrar ou esconder códigos, trechos, documentos e rótulos.
-    O seletor <strong>Layout</strong> alterna entre <strong>Força</strong> (os nós se acomodam pelas
-    conexões) e <strong>Radial</strong> (códigos no centro, trechos em anéis). Arraste um nó para
-    reposicioná-lo, arraste o fundo para navegar e use a roda do mouse ou os botões
-    <strong>+</strong> e <strong>−</strong> para aproximar. Um clique seleciona e destaca as
-    relações; duplo clique abre o documento, o trecho ou os códigos correspondentes.
+    Arraste um nó para reposicioná-lo, arraste o fundo para navegar e use a roda do mouse ou os
+    botões <strong>+</strong> e <strong>−</strong> para aproximar. Um clique seleciona e destaca
+    as relações; duplo clique abre o documento, o trecho ou os códigos correspondentes.
+    <strong>Reorganizar</strong> recalcula as posições sem mexer nos dados.
+  </p>
+  <p>
+    Em redes muito cheias, desligue <strong>Documentos</strong>, use <strong>Pontos</strong> e o
+    tamanho <strong>Pequeno</strong>: a figura fica legível e o painel continua dando acesso ao
+    texto de cada trecho.
   </p>
   <p>
     Ao selecionar um código, o painel da direita mostra os códigos conectados, os vínculos

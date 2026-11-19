@@ -163,6 +163,7 @@ export function buildNetwork (data, options = {}) {
         kind: 'quote',
         refId: key,
         label: clip(first.text, 48),
+        text: first.text || '',
         color: codeById.get(first.codeId)?.color || '#8a97a8',
         weight: list.length,
         transcriptId: first.transcriptId,
@@ -247,7 +248,165 @@ export function buildNetwork (data, options = {}) {
 export function nodeRadius (node) {
   if (node.kind === 'quote') return 4
   if (node.kind === 'doc') return 7 + Math.min(9, Math.sqrt(node.weight || 0) * 1.6)
-  return 6 + Math.min(12, Math.sqrt(node.weight || 0) * 2.6)
+  const box = nodeSize(node)
+  return box.h / 2
+}
+
+/* Códigos e citações viram caixas, como no atlas.ti. */
+const CODE_FONT = 12
+const CODE_PAD_X = 12
+const CODE_MIN_W = 64
+const CODE_MAX_W = 168
+const CODE_BASE_H = 28
+const CODE_MAX_CHARS = 20
+const CODE_PER_LINE = 20
+
+/** Quebra o texto em linhas curtas, sem cortar palavras quando dá. */
+function wrapLines (text, perLine, maxLines) {
+  const words = String(text || '').replace(/\s+/g, ' ').trim().split(' ')
+  const lines = []
+  let line = ''
+  for (const word of words) {
+    if (!line) {
+      line = word
+    } else if ((line + ' ' + word).length <= perLine) {
+      line += ' ' + word
+    } else {
+      lines.push(line)
+      line = word
+      if (lines.length === maxLines) break
+    }
+  }
+  if (line && lines.length < maxLines) lines.push(line)
+  if (!lines.length) return ['']
+  if (lines.length === maxLines && words.join(' ').length > lines.join(' ').length) {
+    const last = lines[maxLines - 1]
+    lines[maxLines - 1] = last.length > perLine - 1 ? last.slice(0, perLine - 1) + '…' : last + '…'
+  }
+  return lines
+}
+
+/**
+ * Calcula o tamanho de cada nó uma única vez. A decisão fica gravada no
+ * próprio nó (`box`), então layout, bordas, tela e SVG usam a mesma medida.
+ *
+ * @param {Array} nodes
+ * @param {object} opts { quotes: 'dot' | 'short' | 'text', scale: number }
+ */
+export function sizeNodes (nodes, opts = {}) {
+  const { quotes = 'short', scale = 1 } = opts
+  for (const n of nodes) {
+    if (n.kind === 'code') {
+      const size = CODE_FONT * scale
+      // Nomes longos quebram em duas linhas em vez de esticar a caixa.
+      const lines = wrapLines(n.label || '', CODE_PER_LINE, 2)
+      const longest = lines.reduce((m, l) => Math.max(m, l.length), 0)
+      n.box = {
+        w: Math.round(Math.max(
+          CODE_MIN_W * scale,
+          Math.min(CODE_MAX_W * scale, longest * size * 0.62 + CODE_PAD_X * 2 * scale)
+        )),
+        h: Math.round((CODE_BASE_H + Math.min(8, Math.sqrt(n.weight || 0) * 1.6)) * scale + (lines.length - 1) * size * 1.3),
+        radius: Math.max(5, 7 * scale),
+        font: size
+      }
+      n.lines = lines
+    } else if (n.kind === 'quote') {
+      if (quotes === 'dot') {
+        n.box = null
+        n.lines = []
+        continue
+      }
+      const full = quotes === 'text'
+      const font = (full ? 10 : 9.5) * scale
+      const perLine = full ? 46 : 32
+      const maxLines = full ? 4 : 1
+      const lines = wrapLines(n.text || n.label || '', perLine, maxLines)
+      const longest = lines.reduce((m, l) => Math.max(m, l.length), 0)
+      n.box = {
+        w: Math.round(Math.max(84 * scale, longest * font * 0.55 + 18)),
+        h: Math.round(lines.length * font * 1.4 + 13),
+        radius: Math.max(4, 5 * scale),
+        font
+      }
+      n.lines = lines
+    } else {
+      n.box = null
+      n.lines = []
+    }
+  }
+  return nodes
+}
+
+/**
+ * Dimensões da caixa de um nó. Trechos em modo ponto e documentos
+ * continuam círculos e devolvem null.
+ * @returns {{w:number,h:number,radius:number,font:number}|null}
+ */
+export function nodeSize (node) {
+  if (node.box !== undefined) return node.box || null
+  if (node.kind !== 'code') return null
+  const text = clip(node.label || '', CODE_MAX_CHARS)
+  const raw = text.length * CODE_FONT * 0.62 + CODE_PAD_X * 2
+  return {
+    w: Math.round(Math.max(CODE_MIN_W, Math.min(CODE_MAX_W, raw))),
+    h: Math.round(CODE_BASE_H + Math.min(8, Math.sqrt(node.weight || 0) * 1.6)),
+    radius: 7,
+    font: CODE_FONT
+  }
+}
+
+/** Meia largura e meia altura usadas no afastamento dos nós. */
+function nodeHalf (node) {
+  const box = nodeSize(node)
+  if (box) return { hw: box.w / 2, hh: box.h / 2 }
+  const r = nodeRadius(node)
+  return { hw: r, hh: r }
+}
+
+/**
+ * Afasta nós que se sobrepõem, respeitando o tamanho de cada um.
+ * Determinístico: roda sempre na mesma ordem, sem aleatoriedade.
+ */
+export function resolveOverlaps (nodes, opts = {}) {
+  const { gap = 12, passes = 80, width = 0, height = 0, margin = 12 } = opts
+  for (let p = 0; p < passes; p++) {
+    let moved = false
+    for (let i = 0; i < nodes.length; i++) {
+      const a = nodes[i]
+      const ha = nodeHalf(a)
+      for (let j = i + 1; j < nodes.length; j++) {
+        const b = nodes[j]
+        const hb = nodeHalf(b)
+        const minX = ha.hw + hb.hw + gap
+        const minY = ha.hh + hb.hh + gap
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        if (Math.abs(dx) >= minX || Math.abs(dy) >= minY) continue
+        const ox = minX - Math.abs(dx)
+        const oy = minY - Math.abs(dy)
+        if (ox < oy) {
+          const s = dx >= 0 ? 1 : -1
+          a.x -= (ox / 2) * s
+          b.x += (ox / 2) * s
+        } else {
+          const s = dy >= 0 ? 1 : -1
+          a.y -= (oy / 2) * s
+          b.y += (oy / 2) * s
+        }
+        moved = true
+      }
+    }
+    if (width && height) {
+      for (const node of nodes) {
+        const { hw, hh } = nodeHalf(node)
+        node.x = Math.max(margin + hw, Math.min(width - margin - hw, node.x))
+        node.y = Math.max(margin + hh, Math.min(height - margin - hh, node.y))
+      }
+    }
+    if (!moved) break
+  }
+  return nodes
 }
 
 const EDGE_STYLE = {
@@ -270,6 +429,36 @@ export function edgeWidth (edge) {
     return 1 + Math.min(5, Math.log2(1 + Math.max(1, edge.weight || 1)) * 1.7)
   }
   return edgeStyle(edge).width
+}
+
+/**
+ * Onde escrever o rótulo de uma aresta: no meio, deslocado para cima, e
+ * deslizado ao longo da linha quando cai em cima de um nó. Evita que os
+ * nomes dos vínculos se percam atrás das caixas.
+ */
+export function edgeLabelPos (a, b, nodes = []) {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const d = Math.hypot(dx, dy) || 1
+  let nx = -dy / d
+  let ny = dx / d
+  if (ny > 0) { nx = -nx; ny = -ny }
+  const gap = 8
+  const hits = (x, y) => nodes.some((n) => {
+    if (n === a || n === b) return false
+    const box = nodeSize(n)
+    if (box) {
+      return Math.abs(x - n.x) < box.w / 2 + 4 && Math.abs(y - n.y) < box.h / 2 + 4
+    }
+    const r = nodeRadius(n)
+    return Math.hypot(x - n.x, y - n.y) < r + 4
+  })
+  for (const t of [0.5, 0.62, 0.38, 0.72, 0.28]) {
+    const x = a.x + dx * t + nx * gap
+    const y = a.y + dy * t + ny * gap
+    if (!hits(x, y)) return { x, y }
+  }
+  return { x: a.x + dx * 0.5 + nx * gap, y: a.y + dy * 0.5 + ny * gap }
 }
 
 /** Texto curto de um vínculo nomeado, para rótulos na figura. */
@@ -297,7 +486,17 @@ export function edgeGeometry (a, b, edge) {
   const dx = b.x - a.x
   const dy = b.y - a.y
   const d = Math.hypot(dx, dy) || 1
-  const trim = isDirected(edge) ? nodeRadius(b) + 3 : 0
+  let trim = 0
+  if (isDirected(edge)) {
+    const box = nodeSize(b)
+    if (box) {
+      const tx = Math.abs(dx) < 1e-6 ? Infinity : (box.w / 2) / Math.abs(dx)
+      const ty = Math.abs(dy) < 1e-6 ? Infinity : (box.h / 2) / Math.abs(dy)
+      trim = d * Math.min(tx, ty) + 4
+    } else {
+      trim = nodeRadius(b) + 3
+    }
+  }
   return {
     x1: a.x,
     y1: a.y,
@@ -310,14 +509,33 @@ export function edgeGeometry (a, b, edge) {
 
 /**
  * Posição e alinhamento do rótulo, mantendo o texto dentro da figura.
- * Códigos ficam centralizados acima do nó; trechos e documentos à direita.
+ * Códigos e citações em caixa levam o texto para dentro; documentos à direita.
  */
 export function nodeLabelLayout (n, width = 1000) {
-  const size = n.kind === 'doc' ? 11 : n.kind === 'code' ? 12 : 10
-  const weight = n.kind === 'code' ? 600 : 400
-  const r = nodeRadius(n)
+  const box = nodeSize(n)
+
+  // Nome do código e trecho da citação ficam dentro da caixa.
+  if (box) {
+    const lines = n.lines && n.lines.length ? n.lines : [clip(n.label || '', CODE_MAX_CHARS)]
+    const lineHeight = box.font * (n.kind === 'quote' ? 1.4 : 1.3)
+    const first = n.y - ((lines.length - 1) * lineHeight) / 2 + box.font * 0.35
+    return {
+      x: n.x,
+      y: first,
+      anchor: 'middle',
+      size: box.font,
+      weight: n.kind === 'code' ? 600 : 400,
+      inside: true,
+      lines,
+      lineHeight
+    }
+  }
+
+  const size = n.kind === 'doc' ? 11 : 10
+  const weight = 400
   const text = String(n.label || '')
   const w = text.length * size * 0.56
+  const r = nodeRadius(n)
 
   if (n.kind === 'quote') {
     let x = n.x + r + 6
@@ -338,7 +556,7 @@ export function nodeLabelLayout (n, width = 1000) {
     x = width - 4
     anchor = 'end'
   }
-  return { x, y: n.kind === 'code' ? n.y - r - 9 : n.y + 4, anchor, size, weight }
+  return { x, y: n.y + 4, anchor, size, weight }
 }
 
 const ARROW_ID = {
@@ -376,10 +594,10 @@ export function layoutNetwork (nodes, edges, opts = {}) {
 
   const index = new Map(nodes.map((n, i) => [n.id, i]))
   const ideal = (edge) => {
-    if (edge.kind === 'codes') return 78
-    if (edge.kind === 'hierarchy') return 66
-    if (edge.kind === 'inDoc') return 120
-    return 96
+    if (edge.kind === 'codes') return 132
+    if (edge.kind === 'hierarchy') return 124
+    if (edge.kind === 'inDoc') return 128
+    return 112
   }
   const linkList = edges
     .map((e) => ({ a: index.get(e.a), b: index.get(e.b), d: ideal(e) }))
@@ -388,7 +606,7 @@ export function layoutNetwork (nodes, edges, opts = {}) {
   const n = nodes.length
   const cx = width / 2
   const cy = height / 2
-  const repel = n > 120 ? 2400 : n > 40 ? 2900 : n > 16 ? 2900 : 1500
+  const repel = n > 120 ? 2400 : n > 40 ? 3000 : n > 16 ? 3000 : 2100
   const gravity = n <= 10 ? 0.011 : 0.005
 
   for (let it = 0; it < iterations; it++) {
@@ -437,6 +655,14 @@ export function layoutNetwork (nodes, edges, opts = {}) {
     }
   }
 
+  // A caixa do código é mais larga que um círculo: reserva a folga necessária.
+  const maxHalf = nodes.reduce((acc, node) => {
+    const { hw, hh } = nodeHalf(node)
+    return { w: Math.max(acc.w, hw), h: Math.max(acc.h, hh) }
+  }, { w: 0, h: 0 })
+  const padX = Math.max(padding, maxHalf.w + 10)
+  const padY = Math.max(padding, maxHalf.h + 10)
+
   // Normaliza para a área visível, preservando proporções.
   const xs = nodes.map((n) => n.x)
   const ys = nodes.map((n) => n.y)
@@ -446,13 +672,14 @@ export function layoutNetwork (nodes, edges, opts = {}) {
   const maxY = Math.max(...ys)
   const spanX = Math.max(1, maxX - minX)
   const spanY = Math.max(1, maxY - minY)
-  const scale = Math.min((width - padding * 2) / spanX, (height - padding * 2) / spanY, 2.2)
+  const scale = Math.min((width - padX * 2) / spanX, (height - padY * 2) / spanY, 2.2)
   for (const node of nodes) {
-    node.x = padding + (node.x - minX) * scale
-    node.y = padding + (node.y - minY) * scale
+    node.x = padX + (node.x - minX) * scale
+    node.y = padY + (node.y - minY) * scale
     delete node.vx
     delete node.vy
   }
+  resolveOverlaps(nodes, { width, height, gap: 18, passes: 140 })
   return nodes
 }
 
@@ -466,11 +693,15 @@ export function layoutRadial (nodes, edges, opts = {}) {
   const docs = nodes.filter((n) => n.kind === 'doc')
   const quotes = nodes.filter((n) => n.kind === 'quote')
 
+  const minSide = Math.min(width, height)
+  const codeWidths = codes.reduce((sum, n) => sum + (nodeSize(n)?.w || 64) + 18, 0)
+  const codeRing = codes.length === 1
+    ? 0
+    : Math.min(minSide * 0.32, Math.max(minSide * 0.18, codeWidths / (Math.PI * 2)))
   codes.forEach((n, i) => {
     const a = (i / Math.max(1, codes.length)) * Math.PI * 2 - Math.PI / 2
-    const r = Math.min(width, height) * (codes.length === 1 ? 0 : 0.16)
-    n.x = cx + Math.cos(a) * r
-    n.y = cy + Math.sin(a) * r
+    n.x = cx + Math.cos(a) * codeRing
+    n.y = cy + Math.sin(a) * codeRing
   })
 
   const neighbor = new Map()
@@ -482,7 +713,7 @@ export function layoutRadial (nodes, edges, opts = {}) {
     if (b.kind === 'quote' && a.kind === 'code') { if (!neighbor.has(b.id)) neighbor.set(b.id, a) }
   }
 
-  const ringR = Math.min(width, height) * 0.36
+  const ringR = Math.min(width, height) * 0.38 + codeRing * 0.4
   quotes.forEach((n, i) => {
     const anchor = neighbor.get(n.id)
     const base = anchor
@@ -506,6 +737,7 @@ export function layoutRadial (nodes, edges, opts = {}) {
     node.x = Math.max(padding, Math.min(width - padding, node.x))
     node.y = Math.max(padding, Math.min(height - padding, node.y))
   }
+  resolveOverlaps(nodes, { width, height, gap: 18, passes: 140 })
   return nodes
 }
 
@@ -554,24 +786,44 @@ export function networkSvg (nodes, edges, opts = {}) {
         const a = byId.get(e.a)
         const b = byId.get(e.b)
         if (!a || !b) return ''
-        const g = edgeGeometry(a, b, e)
-        return `<text x="${g.midX.toFixed(1)}" y="${(g.midY - 5).toFixed(1)}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#6b7280" stroke="#ffffff" stroke-width="3" paint-order="stroke">${escapeXml(e.label || RELATION_TEXT[e.type] || e.type)}</text>`
+        const pos = edgeLabelPos(a, b, nodes)
+        return `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#6b7280" stroke="#ffffff" stroke-width="3" paint-order="stroke">${escapeXml(e.label || RELATION_TEXT[e.type] || e.type)}</text>`
       }).join('')
     : ''
 
   const nodeShapes = nodes.map((n) => {
+    const box = nodeSize(n)
+    if (box) {
+      const x = (n.x - box.w / 2).toFixed(1)
+      const y = (n.y - box.h / 2).toFixed(1)
+      if (n.kind === 'quote') {
+        // Cartão de citação: fundo branco, borda na cor do código e faixa à esquerda.
+        return `<g><rect x="${x}" y="${y}" width="${box.w}" height="${box.h}" rx="${box.radius}" fill="#ffffff" stroke="${n.color}" stroke-width="1.1" /><rect x="${x}" y="${y}" width="3" height="${box.h}" rx="1.5" fill="${n.color}" /></g>`
+      }
+      const ring = `<rect x="${(n.x - box.w / 2 - 2.5).toFixed(1)}" y="${(n.y - box.h / 2 - 2.5).toFixed(1)}" width="${box.w + 5}" height="${box.h + 5}" rx="${box.radius + 2}" fill="none" stroke="${n.color}" stroke-opacity="0.3" stroke-width="1.4" />`
+      return `<g><rect x="${x}" y="${y}" width="${box.w}" height="${box.h}" rx="${box.radius}" fill="${n.color}" stroke="#ffffff" stroke-width="1.6" />${ring}</g>`
+    }
     const r = nodeRadius(n)
     const opacity = n.kind === 'quote' ? 0.85 : 1
-    const ring = n.kind === 'code' ? `<circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${(r + 2).toFixed(1)}" fill="none" stroke="${n.color}" stroke-opacity="0.28" stroke-width="1.4" />` : ''
-    return `<g><circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${r.toFixed(1)}" fill="${n.color}" fill-opacity="${opacity}" stroke="#ffffff" stroke-width="${n.kind === 'quote' ? 0.8 : 1.6}" />${ring}</g>`
+    return `<g><circle cx="${n.x.toFixed(1)}" cy="${n.y.toFixed(1)}" r="${r.toFixed(1)}" fill="${n.color}" fill-opacity="${opacity}" stroke="#ffffff" stroke-width="${n.kind === 'quote' ? 0.8 : 1.6}" /></g>`
   }).join('')
 
   const labels = showLabels
     ? nodes.map((n) => {
-        if (n.kind === 'quote' && !n.selected) return ''
         const pos = nodeLabelLayout(n, width)
-        const color = n.kind === 'quote' ? '#4b5563' : '#1f2937'
-        return `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="${pos.size}" font-weight="${pos.weight}" fill="${color}" text-anchor="${pos.anchor}">${escapeXml(clip(n.label, 42))}</text>`
+        if (n.kind === 'quote' && !pos.inside && !n.selected) return ''
+        const color = pos.inside
+          ? (n.kind === 'quote' ? '#374151' : '#ffffff')
+          : n.kind === 'quote' ? '#4b5563' : '#1f2937'
+        const family = 'Helvetica Neue, Helvetica, Arial, sans-serif'
+        if (pos.inside && pos.lines.length > 1) {
+          const spans = pos.lines.map((line, i) =>
+            `<tspan x="${pos.x.toFixed(1)}" y="${(pos.y + i * pos.lineHeight).toFixed(1)}">${escapeXml(line)}</tspan>`
+          ).join('')
+          return `<text font-family="${family}" font-size="${pos.size.toFixed(1)}" font-weight="${pos.weight}" fill="${color}" text-anchor="middle">${spans}</text>`
+        }
+        const text = pos.inside ? pos.lines[0] : clip(n.label, 42)
+        return `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="${family}" font-size="${pos.size.toFixed(1)}" font-weight="${pos.weight}" fill="${color}" text-anchor="${pos.anchor}">${escapeXml(text)}</text>`
       }).join('')
     : ''
 
@@ -603,11 +855,12 @@ ${subtitle ? `<text x="56" y="92" font-family="Helvetica Neue, Helvetica, Arial,
 <g transform="translate(56, ${height - 44})">
   <text font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#6b7280">${stats.codes} códigos · ${stats.quotes} trechos${stats.docs ? ` · ${stats.docs} documentos` : ''} · Codificando</text>
 </g>
-<g transform="translate(${width - 232}, ${height - 48})" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#6b7280">
-  <circle cx="6" cy="-4" r="6" fill="#4A90E2" />
-  <text x="18" y="0">código</text>
-  <circle cx="94" cy="-4" r="3.2" fill="#8a97a8" />
-  <text x="104" y="0">trecho</text>
+<g transform="translate(${width - 250}, ${height - 48})" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#6b7280">
+  <rect x="0" y="-12" width="18" height="13" rx="3" fill="#4A90E2" />
+  <text x="26" y="0">código</text>
+  ${nodes.some((n) => n.kind === 'quote' && nodeSize(n))
+    ? '<rect x="102" y="-11" width="18" height="12" rx="2" fill="#ffffff" stroke="#8a97a8" /><text x="128" y="0">trecho</text>'
+    : '<circle cx="110" cy="-5" r="3.4" fill="#8a97a8" /><text x="122" y="0">trecho</text>'}
 </g>
 </svg>`
 }
