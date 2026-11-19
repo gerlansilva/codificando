@@ -14,7 +14,7 @@ import {
 
 /** Configurações gerais: quem sou eu e o projeto. Só o essencial. */
 export default function Settings () {
-  const { data, settings, setProjectMeta, reloadProject, protected: isProtected, openPasswordAction } = useData()
+  const { data, settings, setProjectMeta, setProfile, reloadProject, protected: isProtected, openPasswordAction } = useData()
   const [name, setName] = useState(data.project.name)
   const [description, setDescription] = useState(data.project.description || '')
   const [saved, setSaved] = useState(false)
@@ -51,9 +51,10 @@ export default function Settings () {
 
   useEffect(() => { refreshBackups() }, [])
 
+  // Sem nome padrão: o app não leva os dados de quem o desenvolveu.
   const profile = {
-    name: settings?.profile?.name || 'Gerlan Silva',
-    email: settings?.profile?.email || 'gerlan@ufscar.br'
+    name: settings?.profile?.name || '',
+    email: settings?.profile?.email || ''
   }
   const initials = profile.name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase()
 
@@ -160,10 +161,22 @@ export default function Settings () {
           )}
 
           <section className="settings-card settings-me">
-            <span className="me-avatar">{initials}</span>
-            <div>
-              <h2>{profile.name}</h2>
-              <p className="sub">{profile.email}</p>
+            <span className="me-avatar">{initials || '?'}</span>
+            <div className="me-fields">
+              <input
+                className="me-name-input"
+                value={profile.name}
+                placeholder="Seu nome"
+                aria-label="Seu nome"
+                onChange={(e) => setProfile({ name: e.target.value })}
+              />
+              <input
+                className="me-sub-input"
+                value={profile.email}
+                placeholder="seu@email (opcional)"
+                aria-label="Seu e-mail"
+                onChange={(e) => setProfile({ email: e.target.value })}
+              />
             </div>
           </section>
 

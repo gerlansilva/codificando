@@ -66,6 +66,9 @@ export default function App () {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('investigando.sidebar') === 'collapsed')
   const [settings, setSettings] = useState(() => loadSettings())
   const [projectMenu, setProjectMenu] = useState(false)
+  const [editingProject, setEditingProject] = useState(false)
+  const [projectDraft, setProjectDraft] = useState('')
+  const cancelProjectRef = useRef(false)
   const [protectedNow, setProtectedNow] = useState(false)
   const [pwModal, setPwModal] = useState(null)
   const [pwError, setPwError] = useState(null)
@@ -706,9 +709,42 @@ export default function App () {
         <div className="content">
           <div className="app-top">
             <div className="app-project-wrap">
-              <button className="app-project" onClick={() => navigate('/home')} title="Visão geral do projeto">
-                {data.project.name}
-              </button>
+              {editingProject
+                ? (
+                  <input
+                    className="app-project-input"
+                    value={projectDraft}
+                    autoFocus
+                    aria-label="Nome do projeto"
+                    onChange={(e) => setProjectDraft(e.target.value)}
+                    onBlur={() => {
+                      if (cancelProjectRef.current) {
+                        cancelProjectRef.current = false
+                        setEditingProject(false)
+                        return
+                      }
+                      const name = projectDraft.trim()
+                      if (name && name !== data.project.name) api.setProjectMeta({ name })
+                      setEditingProject(false)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.currentTarget.blur()
+                      if (e.key === 'Escape') {
+                        cancelProjectRef.current = true
+                        e.currentTarget.blur()
+                      }
+                    }}
+                  />
+                )
+                : (
+                  <button
+                    className="app-project"
+                    onClick={() => { setProjectDraft(data.project.name); setEditingProject(true) }}
+                    title="Clique para renomear o projeto"
+                  >
+                    {data.project.name}
+                  </button>
+                )}
               <button
                 className="app-project-more"
                 title="Menu do projeto"
@@ -719,6 +755,14 @@ export default function App () {
               </button>
               {projectMenu && (
                 <div className="dropdown-menu app-project-menu" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => { setProjectMenu(false); navigate('/home') }}>
+                    Visão geral do projeto
+                    <small>Documentos, códigos e números do estudo</small>
+                  </button>
+                  <button onClick={() => { setProjectMenu(false); setProjectDraft(data.project.name); setEditingProject(true) }}>
+                    Renomear projeto
+                    <small>O nome aparece no alto de todas as abas</small>
+                  </button>
                   <button onClick={() => { setProjectMenu(false); api.openProject() }}>
                     Abrir projeto…
                     <small>Escolher um arquivo .investigando</small>

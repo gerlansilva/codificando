@@ -2205,8 +2205,20 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
   -webkit-app-region: drag;
 }
 .app-top > * { -webkit-app-region: no-drag; }
-.app-project { border: 0; background: none; padding: 4px 0; font-family: inherit; font-size: 13px; color: var(--text-muted); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-project { border: 0; background: none; padding: 4px 0; font-family: inherit; font-size: 13px; color: var(--text-muted); cursor: text; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-project:hover { color: var(--navy); }
+.app-project-input {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--navy);
+  border: 0;
+  border-bottom: 1px solid var(--blue, #4A90E2);
+  background: #fff;
+  padding: 3px 0;
+  outline: none;
+  min-width: 160px;
+  max-width: 46vw;
+}
 .app-project-wrap { position: relative; display: flex; align-items: center; gap: 2px; min-width: 0; }
 .app-project-wrap .app-project { max-width: 46vw; }
 .app-project-more { border: 0; background: none; color: var(--text-muted); font-size: 16px; line-height: 1; padding: 4px 7px; border-radius: 6px; cursor: pointer; }

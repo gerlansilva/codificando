@@ -299,7 +299,43 @@ try {
   const el = await page.$('.pdf-page')
   if (el) await el.screenshot({ path: path.join(OUT, 'pagina.png') })
 
-  const report = { platform: process.platform, browser: findBrowser(), base, check, rename, cancel, problems }
+  // 6. renomear o projeto em qualquer aba, pelo alto da tela
+  await page.click('.app-project')
+  await page.waitForSelector('.app-project-input')
+  await page.$eval('.app-project-input', (el) => { el.value = '' })
+  await page.type('.app-project-input', 'Projeto renomeado')
+  await page.keyboard.press('Enter')
+  await new Promise((r) => setTimeout(r, 400))
+  const project = await page.evaluate(() => {
+    const d = JSON.parse(localStorage.getItem('investigando.data.v1'))
+    return { title: document.querySelector('.app-project')?.textContent || '', saved: d.project.name }
+  })
+  if (project.title !== 'Projeto renomeado') problems.push(`nome do projeto no topo: "${project.title}"`)
+  if (project.saved !== 'Projeto renomeado') problems.push(`nome do projeto salvo: "${project.saved}"`)
+
+  // 7. outra aba: o nome acompanha e o perfil vem vazio
+  await page.evaluate(() => { window.location.hash = '#/settings' })
+  await new Promise((r) => setTimeout(r, 700))
+  const settings = await page.evaluate(() => {
+    const text = document.body.innerText
+    const inputs = [...document.querySelectorAll('.me-name-input, .me-sub-input')]
+    return {
+      title: document.querySelector('.app-project')?.textContent || '',
+      names: inputs.map((i) => i.value),
+      placeholders: inputs.map((i) => i.placeholder),
+      personal: /Gerlan|ufscar/i.test(text)
+    }
+  })
+  if (settings.title !== 'Projeto renomeado') problems.push('o nome do projeto não acompanhou a troca de aba')
+  if (settings.personal) problems.push('o app ainda mostra nome ou e-mail do desenvolvedor')
+  if (settings.names.some((v) => v)) problems.push('o perfil começa preenchido')
+  if (!settings.placeholders[0]) problems.push('o campo de nome do perfil não tem placeholder')
+
+  await page.mouse.move(4, 4)
+  await new Promise((r) => setTimeout(r, 200))
+  await page.screenshot({ path: path.join(OUT, 'configuracoes.png') })
+
+  const report = { platform: process.platform, browser: findBrowser(), base, check, rename, cancel, project, settings, problems }
   fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report, null, 2))
 } finally {
