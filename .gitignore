@@ -12,3 +12,4 @@ src-tauri/gen/
 *.mobileprovision
 *.key
 *.pem
+.opencode/
