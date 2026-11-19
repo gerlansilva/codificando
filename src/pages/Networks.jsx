@@ -14,9 +14,14 @@ import {
   RELATION_TEXT,
   layoutNetwork,
   networkSvg,
-  nodeRadius
+  nodeRadius,
+  quoteCounts,
+  quoteModeFor,
+  quoteModeFits,
+  FOCUS_CARD_LIMIT
 } from '../lib/network.js'
 import Icon from '../components/Icon.jsx'
+import { copyText } from '../lib/clipboard.js'
 import RelationModal, { CODE_RELATIONS, QUOTE_RELATIONS, relationLabelFor } from '../components/RelationModal.jsx'
 
 // Vínculos mistos: qualquer nó com qualquer nó (código, trecho ou documento).
@@ -44,6 +49,7 @@ const W = 1000
 const H = 1000
 
 const KIND_LABEL = { code: 'Código', quote: 'Trecho', doc: 'Documento' }
+const MODE_LABEL = { dot: 'Pontos', short: 'Trecho curto', text: 'Trecho' }
 
 /** Rede de relações: códigos, trechos e documentos em um grafo navegável. */
 export default function Networks () {
@@ -65,10 +71,12 @@ export default function Networks () {
   const [showQuotes, setShowQuotes] = useState(true)
   const [showDocs, setShowDocs] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
-  const [quoteMode, setQuoteMode] = useState('short')
+  const [quoteChoice, setQuoteChoice] = useState('auto')
   const [boxScale, setBoxScale] = useState(1)
   const [view, setView] = useState('coding')
   const [selected, setSelected] = useState(null)
+  const [focusCodeId, setFocusCodeId] = useState(null)
+  const [maxQuotes, setMaxQuotes] = useState(240)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [exporting, setExporting] = useState(false)
@@ -76,10 +84,24 @@ export default function Networks () {
   const svgRef = useRef(null)
   const dragRef = useRef(null)
   const panRef = useRef(null)
+  const clickRef = useRef(null)
   const [layoutSeed, setLayoutSeed] = useState(0)
   const [relationModal, setRelationModal] = useState(null)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [, forceRender] = useState(0)
+
+  // Densidade: o modo automático escolhe cartões ou pontos pelo que cabe na
+  // área medida. O usuário pode forçar outro modo.
+  const counts = useMemo(
+    () => quoteCounts(data, { focusCodeId: view === 'coding' ? focusCodeId : null }),
+    [data, focusCodeId, view]
+  )
+  const autoMode = useMemo(
+    () => quoteModeFor({ ...counts, scale: boxScale }),
+    [counts, boxScale]
+  )
+  const quoteMode = quoteChoice === 'auto' ? autoMode : quoteChoice
+  const focusCardLimit = focusCodeId && quoteMode !== 'dot' ? FOCUS_CARD_LIMIT : 0
 
   const network = useMemo(
     () => buildNetwork(data, {
@@ -87,9 +109,11 @@ export default function Networks () {
       showCodes,
       showQuotes: view === 'coding' && showQuotes,
       showDocs: view === 'coding' && showDocs,
-      maxQuotes: 240
+      maxQuotes,
+      focusCodeId: view === 'coding' ? focusCodeId : null,
+      quoteLimit: focusCardLimit
     }),
-    [data, view, showCodes, showQuotes, showDocs]
+    [data, view, showCodes, showQuotes, showDocs, maxQuotes, focusCodeId, focusCardLimit]
   )
 
   // O layout só é recalculado quando os dados, o modo ou o botão Reorganizar mudam.
@@ -97,7 +121,7 @@ export default function Networks () {
   const nodes = useMemo(() => {
     const copy = network.nodes.map((n) => ({ ...n }))
     sizeNodes(copy, { quotes: quoteMode, scale: boxScale })
-    layoutNetwork(copy, network.edges, { width: W, height: H })
+    layoutNetwork(copy, network.edges, { width: W, height: H, seed: layoutSeed })
     return copy
   }, [network, layoutSeed, quoteMode, boxScale])
 
@@ -116,8 +140,33 @@ export default function Networks () {
   const selectedNode = selected ? byId.get(selected) : null
   const highlighted = selected ? (neighbours.get(selected) || new Set()) : null
 
-  useEffect(() => { setSelected(null) }, [view])
+  const hiddenQuotes = network.stats.hiddenQuotes || 0
+  const totalQuotes = network.stats.totalQuotes || 0
+  const focusedName = network.stats.focusName
+  const sharedInFocus = focusCodeId
+    ? nodes.filter((n) => n.kind === 'quote' && (n.codeIds || []).length > 1).length
+    : 0
+  const isolatedCodes = view === 'cooccurrence'
+    ? Math.max(0, (data.codes || []).length - network.stats.codes)
+    : 0
+  const forcedOverCapacity = quoteChoice !== 'auto' &&
+    view === 'coding' && showQuotes &&
+    !quoteModeFits(quoteMode, counts, boxScale)
+
+  useEffect(() => { setSelected(null); setFocusCodeId(null); setConfirmRemove(false) }, [view])
+  useEffect(() => { if (selected && !byId.has(selected)) setSelected(null) }, [byId, selected])
   useEffect(() => { setConfirmRemove(false) }, [selected])
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      setSelected(null)
+      setFocusCodeId(null)
+      setConfirmRemove(false)
+      setRelationModal(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const flash = (message) => {
     setNotice(message)
@@ -142,6 +191,9 @@ export default function Networks () {
   const onPointerDown = (e, node) => {
     e.stopPropagation()
     const point = toLocal(e)
+    clickRef.current = node
+      ? { id: node.id, x: e.clientX, y: e.clientY, focus: node.kind === 'code' ? node.refId : null }
+      : null
     if (node) {
       setSelected(node.id)
       dragRef.current = { id: node.id, dx: node.x - point.x, dy: node.y - point.y }
@@ -182,7 +234,17 @@ export default function Networks () {
     }
   }
 
-  const endDrag = () => {
+  const endDrag = (e) => {
+    const click = clickRef.current
+    // Clique sem arrasto num código isola as citações dele; arrastar não foca.
+    if (click && e?.type === 'pointerup' && e.button === 0) {
+      const moved = Math.hypot(e.clientX - click.x, e.clientY - click.y)
+      if (moved < 4 && click.focus && click.focus !== focusCodeId) {
+        setFocusCodeId(click.focus)
+        fit()
+      }
+    }
+    clickRef.current = null
     dragRef.current = null
     panRef.current = null
   }
@@ -195,7 +257,11 @@ export default function Networks () {
   const reorganize = () => {
     setSelected(null)
     setLayoutSeed((v) => v + 1)
+    fit()
+    flash('Nova organização aplicada.')
   }
+
+  const clearFocus = () => setFocusCodeId(null)
 
   const openSelected = () => {
     if (!selectedNode) return
@@ -204,6 +270,18 @@ export default function Networks () {
       return navigate('/documents/' + selectedNode.transcriptId + '?excerpt=' + encodeURIComponent(selectedNode.refId))
     }
     navigate('/snippets')
+  }
+
+  const changeQuoteMode = (value) => {
+    setQuoteChoice(value)
+    if (value === 'dot') {
+      setMaxQuotes((current) => Math.max(current, counts.total))
+    }
+  }
+
+  const showAllQuotes = () => {
+    setQuoteChoice('dot')
+    setMaxQuotes(Math.max(240, counts.total))
   }
 
   const exportPng = async () => {
@@ -219,7 +297,10 @@ export default function Networks () {
         scale: 3,
         title,
         subtitle,
-        showLabels
+        showLabels,
+        totalQuotes,
+        hiddenQuotes,
+        focusLabel: focusedName || ''
       })
       const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
       const url = URL.createObjectURL(blob)
@@ -268,7 +349,10 @@ export default function Networks () {
         height: H,
         title,
         subtitle: `Rede de relações · ${new Date().toLocaleDateString('pt-BR')}`,
-        showLabels
+        showLabels,
+        totalQuotes,
+        hiddenQuotes,
+        focusLabel: focusedName || ''
       })
       const bytes = new TextEncoder().encode(svg)
       let binary = ''
@@ -287,6 +371,62 @@ export default function Networks () {
     } catch (err) {
       console.error('Falha ao exportar o SVG', err)
       flash('Não foi possível gerar o SVG.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  /** Figura de artigo: tipo maior, poucos trechos e sem rótulos de aresta. */
+  const exportPrint = async () => {
+    if (exporting) return
+    if (!nodes.length) return flash('Não há relações para exportar.')
+    setExporting(true)
+    try {
+      const title = data.project?.name || 'Projeto'
+      const cardMode = quoteMode === 'text' ? 'text' : 'short'
+      const cap = cardMode === 'text' ? 12 : 24
+      const printNet = buildNetwork(data, {
+        mode: 'coding',
+        showCodes: true,
+        showQuotes: true,
+        showDocs: false,
+        focusCodeId,
+        maxQuotes: cap,
+        quoteLimit: cap
+      })
+      const copy = printNet.nodes.map((n) => ({ ...n }))
+      sizeNodes(copy, { quotes: cardMode, print: true })
+      layoutNetwork(copy, printNet.edges, { width: W, height: H, seed: layoutSeed })
+      const svg = networkSvg(copy, printNet.edges, {
+        width: W,
+        height: H,
+        scale: 3,
+        print: true,
+        title,
+        subtitle: 'Figura para artigo · 16 cm',
+        showLabels: true,
+        showEdgeLabels: false,
+        totalQuotes: printNet.stats.totalQuotes,
+        hiddenQuotes: printNet.stats.hiddenQuotes,
+        focusLabel: printNet.stats.focusName || ''
+      })
+      const bytes = new TextEncoder().encode(svg)
+      let binary = ''
+      for (const b of bytes) binary += String.fromCharCode(b)
+      const base64 = btoa(binary)
+      const name = 'rede-' + slug(title) + '-figura.svg'
+      if (bridge?.saveBytes) await bridge.saveBytes(name, base64, 'image/svg+xml')
+      else {
+        const a = document.createElement('a')
+        a.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+        a.download = name
+        a.click()
+      }
+      bridge.notify?.('Figura exportada', name)
+      flash(`Figura para artigo: ${printNet.stats.quotes} de ${printNet.stats.totalQuotes} trechos, tipo de 16 cm.`)
+    } catch (err) {
+      console.error('Falha ao exportar a figura', err)
+      flash('Não foi possível gerar a figura.')
     } finally {
       setExporting(false)
     }
@@ -347,6 +487,11 @@ export default function Networks () {
   const related = selectedNode
     ? [...(neighbours.get(selectedNode.id) || [])].map((id) => byId.get(id)).filter(Boolean)
     : []
+  // No código, os trechos já aparecem na lista completa logo abaixo; repeti-los
+  // em "Conectados" só aumenta o painel.
+  const connected = selectedNode?.kind === 'code'
+    ? related.filter((n) => n.kind !== 'quote')
+    : related
 
   // Relações nomeadas (hierarquia e vínculos criados pelo pesquisador).
   // Trechos codificados do código selecionado (painel lateral, como no atlas.ti).
@@ -366,7 +511,7 @@ export default function Networks () {
         })
       }
     }
-    return [...byQuote.values()].slice(0, 14)
+    return [...byQuote.values()]
   }, [selectedNode, data.excerpts])
 
   const edgeWeightBetween = useMemo(() => {
@@ -402,12 +547,17 @@ export default function Networks () {
       <div className="topbar">
         <h1>Redes</h1>
         <div className="topbar-actions">
-          <button className="btn" onClick={reorganize}>Reorganizar</button>
-          <button className="btn" disabled={exporting || !nodes.length} onClick={exportSvg}>
-            SVG
+          <button className="btn" onClick={reorganize} title="Gera outra organização determinística da rede">
+            Reorganizar
           </button>
-          <button className="btn btn--blue" disabled={exporting || !nodes.length} onClick={exportPng}>
-            {exporting ? 'Exportando…' : 'Exportar PNG'}
+          <button className="btn" disabled={exporting || !nodes.length} onClick={exportPrint} title="SVG com tipo maior e até 24 trechos, para figura de 16 cm">
+            Figura 16 cm
+          </button>
+          <button className="btn" disabled={exporting || !nodes.length} onClick={exportPng} title="PNG de 3000 × 3000 px (fallback)">
+            {exporting ? 'Exportando…' : 'PNG'}
+          </button>
+          <button className="btn btn--blue" disabled={exporting || !nodes.length} onClick={exportSvg} title="Vetorial, sem perda ao ampliar">
+            SVG
           </button>
         </div>
       </div>
@@ -456,7 +606,15 @@ export default function Networks () {
                   <span className="net-sep" />
                   <label className="net-field">
                     <span>Citações</span>
-                    <select className="input" value={quoteMode} onChange={(e) => setQuoteMode(e.target.value)}>
+                    <select
+                      className="input net-mode-select"
+                      value={quoteChoice}
+                      onChange={(e) => changeQuoteMode(e.target.value)}
+                      title={quoteChoice === 'auto'
+                        ? `Modo automático: ${MODE_LABEL[autoMode]} para ${counts.total} citações`
+                        : 'Modo forçado: pode sobrepor cartões'}
+                    >
+                      <option value="auto">Automático — {MODE_LABEL[autoMode]}</option>
                       <option value="dot">Pontos</option>
                       <option value="short">Trecho curto</option>
                       <option value="text">Trecho</option>
@@ -473,15 +631,85 @@ export default function Networks () {
                 </>
               )}
             </div>
-            <span className="net-count">
+            <span className="net-count" aria-live="polite">
               {view === 'cooccurrence'
                 ? `${network.stats.codes} códigos · ${network.stats.links} coocorrências`
                 : <>
-                    {network.stats.codes} códigos · {network.stats.quotes} trechos
+                    {network.stats.codes} códigos · {network.stats.quotes}
+                    {hiddenQuotes ? ` de ${totalQuotes}` : ''} trechos
                     {network.stats.docs ? ` · ${network.stats.docs} documentos` : ''}
                   </>}
             </span>
           </div>
+
+          {view === 'coding' && showQuotes && (focusCodeId || hiddenQuotes > 0 || forcedOverCapacity) && (
+            <div
+              className={focusCodeId ? 'net-banner net-banner--focus' : 'net-banner net-banner--limit'}
+              role="status"
+              aria-live="polite"
+            >
+              <span>
+                {focusCodeId
+                  ? (
+                    <>
+                      <strong>Mostrando {network.stats.quotes} de {totalQuotes} citações de {focusedName}.</strong>
+                      {hiddenQuotes > 0
+                        ? ` As demais ${hiddenQuotes} aparecem em Pontos.`
+                        : sharedInFocus > 0 ? ` ${sharedInFocus} também ${sharedInFocus === 1 ? 'aparece' : 'aparecem'} em outro código.` : ''}
+                    </>
+                    )
+                  : forcedOverCapacity
+                    ? (
+                      <>
+                        <strong>Modo forçado: os cartões podem se sobrepor.</strong>
+                        {' '}Use Pontos ou foque um código para ler.
+                      </>
+                      )
+                    : (
+                      <>
+                        <strong>{hiddenQuotes} citações não aparecem.</strong>
+                        {' '}O limite da figura é {maxQuotes}.
+                      </>
+                      )}
+              </span>
+              <div className="net-banner-actions">
+                {focusCodeId
+                  ? (
+                    <>
+                      {hiddenQuotes > 0 && (
+                        <button className="btn btn--sm" onClick={showAllQuotes}>Ver todas em Pontos</button>
+                      )}
+                      <button className="btn btn--sm" onClick={clearFocus}>Ver todos os códigos</button>
+                    </>
+                    )
+                  : forcedOverCapacity
+                    ? <button className="btn btn--sm" onClick={() => changeQuoteMode('dot')}>Usar Pontos</button>
+                    : (
+                      <>
+                        <select
+                          className="input net-focus-select"
+                          value=""
+                          onChange={(e) => {
+                            if (!e.target.value) return
+                            setFocusCodeId(e.target.value)
+                            setSelected('c:' + e.target.value)
+                          }}
+                        >
+                          <option value="">Escolher código…</option>
+                          {data.codes.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} ({network.stats.codeTotals?.[c.id] ?? 0})
+                            </option>
+                          ))}
+                        </select>
+                        <button className="btn btn--sm" onClick={showAllQuotes}>
+                          Exibir todas ({totalQuotes})
+                        </button>
+                      </>
+                      )}
+              </div>
+            </div>
+          )}
 
           <div className="net-body">
             <div className="net-canvas">
@@ -498,7 +726,7 @@ export default function Networks () {
                     ref={svgRef}
                     className="net-svg"
                     viewBox={`0 0 ${W} ${H}`}
-                    role="img"
+                    role="group"
                     aria-label="Rede de relações entre códigos, trechos e documentos"
                     onPointerDown={(e) => onPointerDown(e, null)}
                     onPointerMove={onPointerMove}
@@ -571,7 +799,19 @@ export default function Networks () {
                             key={n.id}
                             className="net-node"
                             opacity={dim ? 0.35 : 1}
+                            tabIndex={0}
+                            role="button"
+                            aria-label={`${KIND_LABEL[n.kind]}: ${n.kind === 'quote' ? (n.text || n.label) : n.label}`}
                             onPointerDown={(e) => onPointerDown(e, n)}
+                            onKeyDown={(e) => {
+                              if (e.key !== 'Enter' && e.key !== ' ') return
+                              e.preventDefault()
+                              setSelected(n.id)
+                              if (n.kind === 'code') {
+                                setFocusCodeId(n.refId)
+                                fit()
+                              }
+                            }}
                             onDoubleClick={() => {
                               setSelected(n.id)
                               setTimeout(openSelected, 0)
@@ -623,16 +863,37 @@ export default function Networks () {
                                 </>
                                 )
                               : (
-                                <circle
-                                  cx={n.x}
-                                  cy={n.y}
-                                  r={r}
-                                  fill={n.color}
-                                  stroke={isSelected ? '#15294b' : '#fff'}
-                                  strokeWidth={isSelected ? 2.4 : n.kind === 'quote' ? 0.8 : 1.6}
-                                />
+                                <>
+                                  {n.kind === 'quote' && (n.codeIds || []).length > 1 && (
+                                    <circle
+                                      cx={n.x}
+                                      cy={n.y}
+                                      r={r + 2.5}
+                                      fill="none"
+                                      stroke={n.color}
+                                      strokeWidth="1.2"
+                                      opacity="0.8"
+                                    />
+                                  )}
+                                  <circle
+                                    cx={n.x}
+                                    cy={n.y}
+                                    r={r}
+                                    fill={n.color}
+                                    stroke={isSelected ? '#15294b' : '#fff'}
+                                    strokeWidth={isSelected ? 2.4 : n.kind === 'quote' ? 0.8 : 1.6}
+                                  />
+                                  {n.kind === 'quote' && (
+                                    <circle
+                                      cx={n.x}
+                                      cy={n.y}
+                                      r={Math.max(7, r + 3)}
+                                      fill="transparent"
+                                    />
+                                  )}
+                                </>
                                 )}
-                            {showLabels && (box || n.kind !== 'quote' || isSelected || isNeighbour) && (() => {
+                            {showLabels && (box || n.kind !== 'quote' || isSelected) && (() => {
                               const pos = nodeLabelLayout(n, W)
                               if (pos.inside && pos.lines.length > 1) {
                                 return (
@@ -669,11 +930,11 @@ export default function Networks () {
                   </svg>
                   )}
               <div className="net-zoom">
-                <button className="icon-btn" title="Aproximar" onClick={() => setZoom((z) => Math.min(2.6, z * 1.15))}>+</button>
-                <button className="icon-btn" title="Afastar" onClick={() => setZoom((z) => Math.max(0.5, z / 1.15))}>−</button>
-                <button className="icon-btn" title="Ajustar à tela" onClick={fit}>⤢</button>
+                <button className="icon-btn" title="Aproximar" aria-label="Aproximar" onClick={() => setZoom((z) => Math.min(2.6, z * 1.15))}>+</button>
+                <button className="icon-btn" title="Afastar" aria-label="Afastar" onClick={() => setZoom((z) => Math.max(0.5, z / 1.15))}>−</button>
+                <button className="icon-btn" title="Ajustar à tela" aria-label="Ajustar à tela" onClick={fit}>⤢</button>
               </div>
-              {notice && <div className="net-notice">{notice}</div>}
+              {notice && <div className="net-notice" role="status" aria-live="polite">{notice}</div>}
             </div>
 
             <aside className="net-side">
@@ -682,16 +943,36 @@ export default function Networks () {
                   <div className="net-side-empty">
                     <h2>Como ler a rede</h2>
                     <ul>
-                      <li>Clique em um nó para ver as relações.</li>
+                      <li>Clique num código para isolar as citações dele.</li>
+                      <li>Clique num nó para ver as relações e o texto completo.</li>
                       <li>Arraste para mover; arraste o fundo para navegar.</li>
-                      <li>Use a roda do mouse para aproximar.</li>
+                      <li>Use a roda do mouse para aproximar; Esc limpa a seleção.</li>
                     </ul>
                     <div className="net-legend">
                       <span><i className="net-swatch net-swatch--code" /> Código</span>
-                      <span>
-                        <i className={quoteMode === 'dot' ? 'net-dot net-dot--small' : 'net-swatch net-swatch--quote'} style={{ background: quoteMode === 'dot' ? '#7BB661' : undefined }} /> Trecho
-                      </span>
-                      <span><i className="net-dot net-dot--doc" /> Documento</span>
+                      {view === 'coding'
+                        ? (
+                          <>
+                            <span>
+                              <i
+                                className={quoteMode === 'dot' ? 'net-dot net-dot--small' : 'net-swatch net-swatch--quote'}
+                                style={{ background: quoteMode === 'dot' ? '#7BB661' : undefined }}
+                              /> Trecho
+                            </span>
+                            {showDocs && <span><i className="net-dot net-dot--doc" /> Documento</span>}
+                          </>
+                          )
+                        : (
+                          <>
+                            <span className="net-legend-note">A espessura da aresta é o número de trechos em comum.</span>
+                            {isolatedCodes > 0 && (
+                              <span className="net-legend-note net-legend-warn">
+                                {isolatedCodes} código{isolatedCodes === 1 ? '' : 's'} sem coocorrência
+                                {isolatedCodes === 1 ? ' ficou' : ' ficaram'} fora desta visão.
+                              </span>
+                            )}
+                          </>
+                          )}
                     </div>
                     <p className="sub">Duplo clique abre o item de origem.</p>
                   </div>
@@ -699,28 +980,101 @@ export default function Networks () {
                 : (
                   <div className="net-inspector">
                     <span className="net-kind">{KIND_LABEL[selectedNode.kind]}</span>
-                    <h2 title={selectedNode.label}>{selectedNode.label}</h2>
-                    {selectedNode.kind === 'quote' && (
-                      <p className="sub">{selectedNode.docName}{selectedNode.page ? ` · p. ${selectedNode.page}` : ''}</p>
-                    )}
-                    {selectedNode.kind === 'code' && (
-                      <p className="sub">
-                        {selectedNode.weight} trecho{selectedNode.weight === 1 ? '' : 's'} codificado{selectedNode.weight === 1 ? '' : 's'}
-                      </p>
-                    )}
-                    <div className="net-actions">
-                      <button className="btn btn--sm btn--blue" onClick={openSelected}>
-                        {selectedNode.kind === 'code' ? 'Ver trechos' : 'Abrir'}
-                      </button>
-                      <button className="btn btn--sm" onClick={() => setSelected(null)}>Limpar</button>
-                    </div>
+                    {selectedNode.kind === 'quote'
+                      ? (
+                        <>
+                          <p className="sub">
+                            {selectedNode.docName}
+                            {selectedNode.page ? ` · p. ${selectedNode.page}` : ''}
+                          </p>
+                          <p className="net-quote-full">{selectedNode.text || selectedNode.label}</p>
+                          <div className="net-actions">
+                            <button className="btn btn--sm btn--blue" onClick={openSelected}>
+                              Abrir no documento
+                            </button>
+                            <button
+                              className="btn btn--sm"
+                              onClick={async () => {
+                                const ok = await copyText(selectedNode.text || selectedNode.label)
+                                flash(ok ? 'Trecho copiado.' : 'Não foi possível copiar.')
+                              }}
+                            >
+                              Copiar texto
+                            </button>
+                            <button className="btn btn--sm" onClick={() => setSelected(null)}>Limpar</button>
+                          </div>
+                          {(selectedNode.codeIds || []).length > 0 && (
+                            <>
+                              <h3>Códigos <span className="net-side-count">{selectedNode.codeIds.length}</span></h3>
+                              <div className="net-code-chips">
+                                {selectedNode.codeIds.map((id) => {
+                                  const code = data.codes.find((c) => c.id === id)
+                                  if (!code) return null
+                                  return (
+                                    <button
+                                      key={id}
+                                      className="net-code-chip"
+                                      style={{ borderColor: code.color || '#4A90E2' }}
+                                      onClick={() => {
+                                        setFocusCodeId(id)
+                                        setSelected('c:' + id)
+                                        fit()
+                                      }}
+                                      title={`Focar ${code.name}`}
+                                    >
+                                      <i style={{ background: code.color || '#4A90E2' }} />
+                                      {code.name}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </>
+                          )}
+                        </>
+                        )
+                      : (
+                        <>
+                          <h2 title={selectedNode.label}>{selectedNode.label}</h2>
+                          {selectedNode.kind === 'code' && (
+                            <p className="sub">
+                              {network.stats.codeCounts?.[selectedNode.refId] ?? 0}
+                              {(network.stats.codeTotals?.[selectedNode.refId] ?? 0) >
+                                (network.stats.codeCounts?.[selectedNode.refId] ?? 0)
+                                ? ` de ${network.stats.codeTotals[selectedNode.refId]}`
+                                : ''} trecho
+                              {(network.stats.codeTotals?.[selectedNode.refId] ?? 0) === 1 ? '' : 's'} codificado
+                              {(network.stats.codeTotals?.[selectedNode.refId] ?? 0) === 1 ? '' : 's'}
+                            </p>
+                          )}
+                          <div className="net-actions">
+                            <button className="btn btn--sm btn--blue" onClick={openSelected}>
+                              {selectedNode.kind === 'code' ? 'Ver trechos' : 'Abrir'}
+                            </button>
+                            {selectedNode.kind === 'code' && (
+                              <button
+                                className="btn btn--sm"
+                                onClick={() => {
+                                  if (focusCodeId === selectedNode.refId) clearFocus()
+                                  else {
+                                    setFocusCodeId(selectedNode.refId)
+                                    fit()
+                                  }
+                                }}
+                              >
+                                {focusCodeId === selectedNode.refId ? 'Ver todos os códigos' : 'Focar este código'}
+                              </button>
+                            )}
+                            <button className="btn btn--sm" onClick={() => setSelected(null)}>Limpar</button>
+                          </div>
+                        </>
+                        )}
 
-                    <h3>Conectados <span className="net-side-count">{related.length}</span></h3>
-                    {related.length === 0
+                    <h3>Conectados <span className="net-side-count">{connected.length}</span></h3>
+                    {connected.length === 0
                       ? <p className="sub">Nenhuma relação visível com os filtros atuais.</p>
                       : (
                         <ul className="net-related">
-                          {related.slice(0, 40).map((n) => (
+                          {connected.slice(0, 40).map((n) => (
                             <li key={n.id}>
                               <button onClick={() => setSelected(n.id)}>
                                 <i className="net-dot" style={{ background: n.color }} />
@@ -797,17 +1151,25 @@ export default function Networks () {
                       <>
                         <h3>
                           Trechos codificados
-                          <span className="net-side-count">{selectedNode.weight}</span>
+                          <span className="net-side-count">{selectedQuotes.length}</span>
                         </h3>
                         <ul className="net-quotes">
                           {selectedQuotes.map((q) => (
                             <li key={q.id}>
                               <button
                                 title={q.text}
-                                onClick={() => navigate(
-                                  '/documents/' + q.transcriptId +
-                                  (q.page ? '?page=' + q.page : '?excerpt=' + q.id)
-                                )}
+                                onClick={() => {
+                                  const key = 'q:' + q.id
+                                  if (byId.has(key)) {
+                                    setSelected(key)
+                                    fit()
+                                  } else {
+                                    navigate(
+                                      '/documents/' + q.transcriptId +
+                                      (q.page ? '?page=' + q.page : '?excerpt=' + q.id)
+                                    )
+                                  }
+                                }}
                               >
                                 <span className="net-quote-doc">
                                   {data.transcripts.find((t) => t.id === q.transcriptId)?.name || 'Documento'}
@@ -818,11 +1180,9 @@ export default function Networks () {
                             </li>
                           ))}
                         </ul>
-                        {selectedNode.weight > selectedQuotes.length && (
-                          <button className="btn--link net-quotes-more" onClick={openSelected}>
-                            Ver todos os {selectedNode.weight} trechos →
-                          </button>
-                        )}
+                        <button className="btn--link net-quotes-more" onClick={openSelected}>
+                          Ver na página Trechos →
+                        </button>
                       </>
                     )}
 

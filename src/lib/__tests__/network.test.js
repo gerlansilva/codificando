@@ -10,7 +10,10 @@ import {
   layoutNetwork,
   layoutRadial,
   networkSvg,
-  nodeRadius
+  nodeRadius,
+  quoteCounts,
+  quoteModeFor,
+  quoteModeFits
 } from '../network.js'
 
 const data = {
@@ -77,7 +80,16 @@ describe('buildNetwork', () => {
     const net = buildNetwork({})
     expect(net.nodes).toEqual([])
     expect(net.edges).toEqual([])
-    expect(net.stats).toEqual({ codes: 0, quotes: 0, docs: 0, links: 0 })
+    expect(net.stats).toMatchObject({
+      codes: 0,
+      quotes: 0,
+      docs: 0,
+      links: 0,
+      totalQuotes: 0,
+      hiddenQuotes: 0,
+      focusCodeId: null,
+      focusName: null
+    })
   })
 })
 
@@ -174,7 +186,171 @@ describe('layoutNetwork', () => {
   })
 })
 
-describe('layoutRadial', () => {
+describe('densidade e foco', () => {
+  const many = {
+    ...data,
+    excerpts: Array.from({ length: 60 }, (_, i) => ({
+      id: 'm' + i,
+      quoteId: 'mq' + i,
+      codeId: i % 2 ? 'c1' : 'c2',
+      transcriptId: 't1',
+      text: 'Trecho ' + i,
+      createdAt: new Date(2026, 0, 1, 0, i).toISOString()
+    }))
+  }
+
+  it('conta citações únicas e o máximo por código', () => {
+    expect(quoteCounts(data)).toEqual({ total: 2, maxPer: 2 })
+    expect(quoteCounts(many)).toEqual({ total: 60, maxPer: 30 })
+    expect(quoteCounts(many, { focusCodeId: 'c1' })).toEqual({ total: 30, maxPer: 30 })
+  })
+
+  it('escolhe o modo pelo que cabe na área', () => {
+    expect(quoteModeFor({ total: 30, maxPer: 20 })).toBe('text')
+    expect(quoteModeFor({ total: 31, maxPer: 20 })).toBe('short')
+    expect(quoteModeFor({ total: 50, maxPer: 30 })).toBe('short')
+    expect(quoteModeFor({ total: 51, maxPer: 30 })).toBe('dot')
+    expect(quoteModeFor({ total: 20, maxPer: 21 })).toBe('short')
+    expect(quoteModeFor({ total: 45, maxPer: 26, scale: 1.15 })).toBe('short')
+    expect(quoteModeFor({ total: 61, maxPer: 30, scale: 0.85 })).toBe('dot')
+    expect(quoteModeFits('text', { total: 30, maxPer: 20 })).toBe(true)
+    expect(quoteModeFits('text', { total: 50, maxPer: 20 })).toBe(false)
+    expect(quoteModeFits('dot', { total: 240, maxPer: 240 })).toBe(true)
+  })
+
+  it('foca um código sem perder os demais como contexto', () => {
+    const net = buildNetwork(many, { focusCodeId: 'c2' })
+    expect(net.nodes.filter((n) => n.kind === 'code')).toHaveLength(3)
+    expect(net.stats.quotes).toBe(30)
+    expect(net.stats.totalQuotes).toBe(30)
+    expect(net.stats.hiddenQuotes).toBe(0)
+    expect(net.stats.focusName).toBe('Escuta do erro')
+    expect(net.nodes.filter((n) => n.kind === 'quote')).toHaveLength(30)
+  })
+
+  it('limita os cartões no foco e informa quantos ficaram fora', () => {
+    const net = buildNetwork(many, { focusCodeId: 'c2', quoteLimit: 24 })
+    expect(net.stats.quotes).toBe(24)
+    expect(net.stats.totalQuotes).toBe(30)
+    expect(net.stats.hiddenQuotes).toBe(6)
+  })
+
+  it('informa o corte global de citações', () => {
+    const net = buildNetwork(many, { maxQuotes: 40 })
+    expect(net.stats.quotes).toBe(40)
+    expect(net.stats.totalQuotes).toBe(60)
+    expect(net.stats.hiddenQuotes).toBe(20)
+    expect(net.stats.codeCounts.c1 + net.stats.codeCounts.c2).toBe(40)
+    expect(net.stats.codeTotals.c1).toBe(30)
+  })
+
+  it('usa citações únicas no peso do código', () => {
+    const net = buildNetwork(data)
+    const code = net.nodes.find((n) => n.id === 'c:c2')
+    expect(code.weight).toBe(2)
+  })
+})
+
+describe('impressão', () => {
+  it('aumenta o tipo e não corta nomes de código', () => {
+    const net = buildNetwork(data)
+    const nodes = sizeNodes(net.nodes.map((n) => ({ ...n })), { quotes: 'short', print: true })
+    const code = nodes.find((n) => n.kind === 'code')
+    const quote = nodes.find((n) => n.kind === 'quote')
+    expect(nodeSize(code).font).toBe(20)
+    expect(nodeSize(quote).font).toBe(16)
+    expect(nodeSize(code).w).toBeGreaterThan(100)
+    expect(nodeSize(quote).h).toBeGreaterThan(35)
+  })
+
+  it('no modo curto de impressão usa uma linha só', () => {
+    const net = buildNetwork(data)
+    const nodes = sizeNodes(net.nodes.map((n) => ({ ...n })), { quotes: 'short', print: true })
+    const quote = nodes.find((n) => n.kind === 'quote')
+    expect(quote.lines).toHaveLength(1)
+    expect(nodeSize(quote).h).toBeLessThan(60)
+  })
+
+  it('distribui 12 cartões de três linhas sem sobreposição', () => {
+    const codes = Array.from({ length: 10 }, (_, i) => ({
+      id: 'p' + i, name: 'Código ' + i, color: '#4A90E2', parentId: null
+    }))
+    const transcripts = [{ id: 'doc', name: 'Documento' }]
+    const texts = [
+      'As figuras abaixo representam ângulos com diferentes aberturas e os estudantes comparam.',
+      'Quando duas retas formam ângulos retos, elas são chamadas de perpendiculares no plano.',
+      'Espera-se que façam desenhos de possíveis construções como de um quadrado qualquer.',
+      'O professor faz outro desafio: agora, Gilmar, construa duas retas paralelas entre si.',
+      'Com as peças do Tangram, forme livremente qualquer figura geométrica plana.'
+    ]
+    const excerpts = Array.from({ length: 12 }, (_, i) => {
+      const text = texts[i % texts.length]
+      return {
+        id: 'e' + i,
+        quoteId: 'q' + i,
+        transcriptId: 'doc',
+        codeId: codes[i % codes.length].id,
+        start: 0,
+        end: text.length,
+        text,
+        createdAt: new Date(2026, 0, 1, 0, i).toISOString()
+      }
+    })
+    const net = buildNetwork({ codes, transcripts, excerpts }, { maxQuotes: 12, quoteLimit: 12 })
+    const nodes = sizeNodes(net.nodes.map((n) => ({ ...n })), { quotes: 'text', print: true })
+    layoutNetwork(nodes, net.edges, { width: 1000, height: 1000 })
+    const boxes = nodes.map((n) => {
+      const b = nodeSize(n)
+      return b ? { x: n.x - b.w / 2, y: n.y - b.h / 2, w: b.w, h: b.h } : null
+    }).filter(Boolean)
+    let overlaps = 0
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i]
+        const c = boxes[j]
+        if (Math.min(a.x + a.w, c.x + c.w) - Math.max(a.x, c.x) > 0.5 &&
+            Math.min(a.y + a.h, c.y + c.h) - Math.max(a.y, c.y) > 0.5) overlaps++
+      }
+    }
+    expect(overlaps).toBe(0)
+  })
+
+  it('escreve a contagem honesta na legenda', () => {
+    const net = buildNetwork(data)
+    const nodes = layoutNetwork(net.nodes.map((n) => ({ ...n })), net.edges, { width: 600, height: 400 })
+    const svg = networkSvg(nodes, net.edges, {
+      width: 600,
+      height: 400,
+      totalQuotes: 7,
+      hiddenQuotes: 5,
+      focusLabel: 'Mediação docente'
+    })
+    expect(svg).toContain('2 de 7 trechos')
+    expect(svg).toContain('Mediação docente')
+  })
+})
+
+describe('reorganizar', () => {
+  it('muda o arranjo com uma semente diferente', () => {
+    const net = buildNetwork(data)
+    const a = layoutNetwork(net.nodes.map((n) => ({ ...n })), net.edges, { width: 800, height: 600, seed: 0 })
+    const b = layoutNetwork(net.nodes.map((n) => ({ ...n })), net.edges, { width: 800, height: 600, seed: 2 })
+    const moved = a.filter((n) => {
+      const other = b.find((m) => m.id === n.id)
+      return Math.hypot(n.x - other.x, n.y - other.y) > 1
+    })
+    expect(moved.length).toBeGreaterThan(0)
+  })
+
+  it('mantém a mesma semente determinística', () => {
+    const net = buildNetwork(data)
+    const run = () => layoutNetwork(net.nodes.map((n) => ({ ...n })), net.edges, { width: 800, height: 600, seed: 3 })
+      .map((n) => [n.id, Math.round(n.x), Math.round(n.y)])
+    expect(run()).toEqual(run())
+  })
+})
+
+ describe('layoutRadial', () => {
   it('coloca códigos perto do centro e trechos em anel externo', () => {
     const net = buildNetwork(data)
     const nodes = layoutRadial(net.nodes.map((n) => ({ ...n })), net.edges, { width: 1000, height: 700 })

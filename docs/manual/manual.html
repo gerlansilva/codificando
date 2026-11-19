@@ -826,12 +826,28 @@
 
   <h3>Regular o tamanho e o texto</h3>
   <p>
-    Dois controles decidem quanto texto aparece. <strong>Citações</strong> oferece
-    <strong>Pontos</strong> (só os nós, para redes grandes), <strong>Trecho curto</strong>
-    (uma linha com o começo da citação) e <strong>Trecho</strong> (até quatro linhas, como os
-    cartões do atlas.ti). <strong>Tamanho</strong> reduz ou amplia as caixas em três níveis —
-    útil para caber mais conteúdo sem sobreposição. A rede é reorganizada a cada mudança, e o
-    texto completo de cada citação continua disponível no painel e ao passar o mouse.
+    Dois controles decidem quanto texto aparece. <strong>Citações</strong> começa em
+    <strong>Automático</strong>: o app mede a quantidade de trechos e o maior número de citações
+    num mesmo código e escolhe o modo que cabe na área sem sobrepor cartões —
+    <strong>Trecho</strong> (até três linhas), <strong>Trecho curto</strong> (uma linha) ou
+    <strong>Pontos</strong> (só os nós, para redes grandes). Você pode forçar outro modo; nesse
+    caso, uma faixa avisa que os cartões podem se sobrepor. <strong>Tamanho</strong> reduz ou
+    amplia as caixas em três níveis, e o modo automático é recalculado para cada tamanho.
+  </p>
+  <p>
+    A contagem acima da rede é sempre honesta: <em>“24 de 300 trechos”</em> significa que só 24
+    foram desenhados. Quando há corte, a faixa âmbar explica o motivo e oferece
+    <strong>Exibir todas em Pontos</strong>. O texto completo de cada citação continua no painel
+    lateral e no inspetor.
+  </p>
+
+  <h3>Focar um código</h3>
+  <p>
+    Um clique no código isola as citações dele: os demais códigos ficam como contexto apagado e
+    a rede passa a mostrar só os trechos daquele código, com o modo automático recalculado para
+    esse recorte (até 24 cartões; acima disso, pontos). A faixa verde informa quantas citações
+    aparecem e quantas ficaram de fora; use <strong>Ver todos os códigos</strong> ou
+    <kbd>Esc</kbd> para voltar. No inspetor do trecho, os chips de código também levam ao foco.
   </p>
 
   <h3>Navegar e ajustar</h3>
@@ -840,31 +856,42 @@
     Arraste um nó para reposicioná-lo, arraste o fundo para navegar e use a roda do mouse ou os
     botões <strong>+</strong> e <strong>−</strong> para aproximar. Um clique seleciona e destaca
     as relações; duplo clique abre o documento, o trecho ou os códigos correspondentes.
-    <strong>Reorganizar</strong> recalcula as posições sem mexer nos dados.
+    <strong>Reorganizar</strong> gera outra organização determinística da mesma rede; repita até
+    chegar ao arranjo que preferir.
   </p>
   <p>
     Em redes muito cheias, desligue <strong>Documentos</strong>, use <strong>Pontos</strong> e o
     tamanho <strong>Pequeno</strong>: a figura fica legível e o painel continua dando acesso ao
-    texto de cada trecho.
+    texto de cada trecho. Os nós também respondem ao teclado: <kbd>Tab</kbd> percorre,
+    <kbd>Enter</kbd> abre e <kbd>Esc</kbd> limpa a seleção.
   </p>
   <p>
     Ao selecionar um código, o painel da direita mostra os códigos conectados, os vínculos
-    nomeados e a lista dos <strong>trechos codificados</strong>, com documento, página e o texto.
-    Um clique em qualquer trecho abre o documento no ponto exato.
+    nomeados e a lista completa dos <strong>trechos codificados</strong>, com documento, página e
+    o texto. Ao selecionar um trecho, o inspetor mostra o texto integral com rolagem, o documento
+    e a página de origem, os códigos aplicados e um botão para copiar a citação.
   </p>
 
   <h3>Exportar como figura</h3>
   <p>
-    <strong>Exportar PNG</strong> gera uma imagem de 3000 × 3000 pixels, com o nome do projeto,
-    a data, a contagem de nós e uma legenda. O desenho é determinístico: o mesmo projeto, com o
-    mesmo layout, produz a mesma figura em qualquer exportação — útil para comparar versões ou
-    reproduzir uma figura no artigo. A imagem é salva onde você indicar, sem passar pela rede.
+    <strong>SVG</strong> (botão azul) é o formato recomendado: vetorial, sem perda ao ampliar, com
+    o nome do projeto, a data, a contagem de nós e a legenda. O desenho é determinístico — o mesmo
+    projeto, com o mesmo arranjo, produz a mesma figura em qualquer exportação.
+  </p>
+  <p>
+    <strong>Figura 16 cm</strong> gera um SVG pensado para uma figura de artigo com 16 cm de
+    largura: tipo maior (citação de 6 pt e código de 7,5 pt), arestas sem rótulo e no máximo
+    24 trechos de uma linha ou 12 de três linhas, escolhidos pela ordem dos mais recentes. A
+    contagem no rodapé informa quantos trechos entraram e quantos ficaram de fora.
+    <strong>PNG</strong> gera o fallback de 3000 × 3000 pixels (476 dpi em 16 cm); use quando o
+    periódico não aceitar SVG.
   </p>
 
   <div class="tip">
-    <b>Para o artigo.</b> Exporte com <strong>Documentos</strong> desligado quando quiser destacar
-    a estrutura analítica (códigos e trechos). Ligue <strong>Documentos</strong> quando a figura
-    precisar mostrar a distribuição das evidências entre as fontes.
+    <b>Para o artigo.</b> Desligue <strong>Documentos</strong> para destacar a estrutura analítica
+    (códigos e trechos). Para uma figura densa, use <strong>Pontos</strong> e descreva no texto o
+    que cada ponto representa. Ligue <strong>Documentos</strong> quando a figura precisar mostrar
+    a distribuição das evidências entre as fontes.
   </div>
 </section>
 

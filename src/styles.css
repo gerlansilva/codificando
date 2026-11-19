@@ -2448,6 +2448,7 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
 .net-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
 .net-field { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-muted); }
 .net-field select { width: 104px; padding: 4px 8px; font-size: 12.5px; }
+.net-mode-select { width: 206px !important; }
 .net-count { font-size: 12px; color: var(--text-muted); }
 
 .net-body { display: flex; gap: 14px; flex: 1; min-height: 0; }
@@ -2464,9 +2465,16 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
 .net-svg:active { cursor: grabbing; }
 .net-node { cursor: pointer; }
 .net-label { font-family: var(--font-sans); fill: #1f2937; }
-.net-label--code { font-size: 12px; font-weight: 600; fill: #fff; stroke: none; }
+.net-label--code { font-size: 12px; font-weight: 600; fill: #0b1b33; stroke: none; }
 .net-label--quote { font-size: 10px; fill: #4b5563; }
 .net-label--doc { font-size: 11px; fill: #4b5563; }
+
+.net-node { outline: none; }
+.net-node:focus-visible rect,
+.net-node:focus-visible circle {
+  stroke: #0b63ce;
+  stroke-width: 3;
+}
 
 .net-zoom {
   position: absolute;
@@ -2480,7 +2488,7 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
   border-radius: 10px;
   padding: 4px;
 }
-.net-zoom .icon-btn { width: 26px; height: 26px; font-size: 14px; }
+.net-zoom .icon-btn { width: 32px; height: 32px; font-size: 15px; }
 .net-notice {
   position: absolute;
   left: 12px;
@@ -2491,6 +2499,28 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
   padding: 7px 12px;
   border-radius: 999px;
 }
+
+.net-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border: 1px solid #f0d9a8;
+  background: #fff8e8;
+  color: #7a5a13;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+}
+.net-banner--focus {
+  border-color: #bfe3cd;
+  background: #f0faf3;
+  color: #25603c;
+}
+.net-banner > span { flex: 1; min-width: 240px; line-height: 1.5; }
+.net-banner strong { font-weight: 600; }
+.net-banner-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.net-focus-select { width: 200px; padding: 4px 8px; font-size: 12.5px; }
 
 .net-side {
   width: 292px;
@@ -2555,8 +2585,9 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
 .net-empty .sub { font-size: 12.5px; color: var(--text-muted); margin-bottom: 10px; }
 
 @media (max-width: 1080px) {
-  .net-body { flex-direction: column; }
-  .net-side { width: auto; max-height: 240px; }
+  .net-body { flex-direction: column; min-height: 760px; }
+  .net-canvas { min-height: 540px; }
+  .net-side { width: auto; max-height: none; }
 }
 
 /* relações no codebook */
@@ -2677,6 +2708,37 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
   overflow: hidden;
 }
 .net-quotes-more { font-size: 12px; margin-top: 6px; }
+.net-quote-full {
+  margin: 8px 0 2px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-body);
+  background: #f8fafc;
+  border: 1px solid #edf1f6;
+  border-radius: 8px;
+  padding: 9px 10px;
+  max-height: 190px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+.net-code-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.net-code-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--text-body);
+  cursor: pointer;
+}
+.net-code-chip:hover { background: #f6f9fd; }
+.net-code-chip i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.net-legend-note { font-size: 11.5px; color: var(--text-muted); }
+.net-legend-warn { color: #8a5a12; background: #fff8e8; border: 1px solid #f0d9a8; border-radius: 6px; padding: 3px 7px; }
 .net-view select { width: 126px; }
 .net-toggle input:disabled { opacity: 0.4; }
 .net-toggle:has(input:disabled) { opacity: 0.55; cursor: default; }

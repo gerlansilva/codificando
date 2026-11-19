@@ -11,6 +11,73 @@
 
 const GOLDEN = 2.399963229728653
 
+/**
+ * Capacidade medida da área de 1000×1000, por escala das caixas.
+ * [total de citações, máximo de citações num mesmo código]
+ * Acima do limite de "curto", só pontos cabem sem sobreposição.
+ */
+export const QUOTE_CAPACITY = {
+  0.85: { text: [40, 28], short: [60, 40] },
+  1: { text: [30, 20], short: [50, 30] },
+  1.15: { text: [28, 18], short: [45, 26] }
+}
+
+/** Limite de cartões quando um código está em foco (medido: 0 sobreposições). */
+export const FOCUS_CARD_LIMIT = 24
+
+export const CODE_TEXT_COLOR = '#0b1b33'
+
+/**
+ * Modo de citação que cabe na área sem sobrepor cartões.
+ * @param {object} counts { total, maxPer, scale, focus }
+ * @returns {'text'|'short'|'dot'}
+ */
+export function quoteModeFor (counts = {}) {
+  const scale = counts.scale || 1
+  const key = scale <= 0.9 ? 0.85 : scale >= 1.1 ? 1.15 : 1
+  const cap = QUOTE_CAPACITY[key]
+  const total = counts.total || 0
+  const maxPer = counts.maxPer || 0
+  if (total <= cap.text[0] && maxPer <= cap.text[1]) return 'text'
+  if (total <= cap.short[0] && maxPer <= cap.short[1]) return 'short'
+  return 'dot'
+}
+
+/** O modo escolhido cabe na área sem sobrepor? Pontos sempre cabem. */
+export function quoteModeFits (mode, counts = {}, scale = 1) {
+  if (mode === 'dot') return true
+  const key = scale <= 0.9 ? 0.85 : scale >= 1.1 ? 1.15 : 1
+  const cap = QUOTE_CAPACITY[key]?.[mode]
+  if (!cap) return false
+  return (counts.total || 0) <= cap[0] && (counts.maxPer || 0) <= cap[1]
+}
+
+/**
+ * Conta citações únicas do projeto (ou de um código) para decidir o modo.
+ * @param {object} data projeto
+ * @param {object} opts { focusCodeId }
+ */
+export function quoteCounts (data, opts = {}) {
+  const excerpts = Array.isArray(data?.excerpts) ? data.excerpts : []
+  const focusCodeId = opts.focusCodeId || null
+  const byQuote = new Map()
+  const perCode = new Map()
+  for (const e of excerpts) {
+    const key = String(e.quoteId || e.id)
+    if (!byQuote.has(key)) byQuote.set(key, new Set())
+    byQuote.get(key).add(e.codeId)
+    if (!perCode.has(e.codeId)) perCode.set(e.codeId, new Set())
+    perCode.get(e.codeId).add(key)
+  }
+  const scoped = focusCodeId ? (perCode.get(focusCodeId) || new Set()) : new Set(byQuote.keys())
+  if (focusCodeId) return { total: scoped.size, maxPer: scoped.size }
+  let maxPer = 0
+  for (const set of perCode.values()) {
+    if (set.size > maxPer) maxPer = set.size
+  }
+  return { total: scoped.size, maxPer }
+}
+
 const clip = (text, max) => {
   const t = String(text || '').replace(/\s+/g, ' ').trim()
   return t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t
@@ -28,7 +95,9 @@ export function buildNetwork (data, options = {}) {
     showQuotes = true,
     showDocs = false,
     maxQuotes = 220,
-    minDegree = 1
+    minDegree = 1,
+    focusCodeId = null,
+    quoteLimit = 0
   } = options
 
   const codes = Array.isArray(data?.codes) ? data.codes : []
@@ -42,8 +111,18 @@ export function buildNetwork (data, options = {}) {
   const docById = new Map(transcripts.map((t) => [t.id, t]))
 
   const quoteKey = (e) => String(e.quoteId || e.id)
-  const codeCount = new Map()
-  for (const e of excerpts) codeCount.set(e.codeId, (codeCount.get(e.codeId) || 0) + 1)
+  // Citações únicas por código (o peso do código e o foco usam essa contagem,
+  // não o número de linhas de excerpt).
+  const codeQuotes = new Map()
+  const allByQuote = new Map()
+  for (const e of excerpts) {
+    const key = quoteKey(e)
+    if (!allByQuote.has(key)) allByQuote.set(key, [])
+    allByQuote.get(key).push(e)
+    if (!codeQuotes.has(e.codeId)) codeQuotes.set(e.codeId, new Set())
+    codeQuotes.get(e.codeId).add(key)
+  }
+  const weightOf = (id) => (codeQuotes.get(id) || new Set()).size
 
   const nodes = []
   const edges = []
@@ -71,7 +150,7 @@ export function buildNetwork (data, options = {}) {
         refId: c.id,
         label: c.name,
         color: c.color || '#4A90E2',
-        weight: codeCount.get(c.id) || 0,
+        weight: weightOf(c.id),
         parentId: c.parentId || null
       })
     }
@@ -115,7 +194,11 @@ export function buildNetwork (data, options = {}) {
         codes: connected.length,
         quotes: byQuote.size,
         docs: 0,
-        links: edges.length
+        links: edges.length,
+        totalQuotes: byQuote.size,
+        hiddenQuotes: 0,
+        focusCodeId: null,
+        focusName: null
       }
     }
   }
@@ -128,7 +211,7 @@ export function buildNetwork (data, options = {}) {
         refId: c.id,
         label: c.name,
         color: c.color || '#4A90E2',
-        weight: codeCount.get(c.id) || 0,
+        weight: weightOf(c.id),
         parentId: c.parentId || null
       })
     }
@@ -142,18 +225,27 @@ export function buildNetwork (data, options = {}) {
     }
   }
 
-  if (showQuotes) {
-    const byQuote = new Map()
-    for (const e of excerpts) {
-      const key = quoteKey(e)
-      if (!byQuote.has(key)) byQuote.set(key, [])
-      byQuote.get(key).push(e)
-    }
+  // Escopo das citações: todo o projeto ou só as de um código em foco.
+  const focusSet = focusCodeId ? (codeQuotes.get(focusCodeId) || new Set()) : null
+  const scopedKeys = focusSet ? [...focusSet] : [...allByQuote.keys()]
+  const totalScoped = scopedKeys.length
+  const quoteCap = focusCodeId
+    ? (quoteLimit > 0 ? quoteLimit : totalScoped)
+    : Math.max(0, maxQuotes)
 
-    const ordered = [...byQuote.entries()]
-      .map(([key, list]) => ({ key, list, at: list[0]?.createdAt || '' }))
+  const visibleCodeCounts = new Map()
+  let visibleQuotes = 0
+
+  if (showQuotes) {
+    const ordered = scopedKeys
+      .map((key) => {
+        const list = allByQuote.get(key) || []
+        return { key, list, at: list[0]?.createdAt || '' }
+      })
       .sort((a, b) => String(b.at).localeCompare(String(a.at)))
-      .slice(0, maxQuotes)
+      .slice(0, quoteCap)
+
+    visibleQuotes = ordered.length
 
     for (const { key, list } of ordered) {
       const first = list[0]
@@ -172,6 +264,7 @@ export function buildNetwork (data, options = {}) {
         page: first.page || first.pages?.[0] || null
       })
       for (const e of list) {
+        visibleCodeCounts.set(e.codeId, (visibleCodeCounts.get(e.codeId) || 0) + 1)
         if (showCodes && codeById.has(e.codeId)) {
           addEdge({ id: 'e:' + e.id, a: 'q:' + key, b: 'c:' + e.codeId, kind: 'codes' })
         }
@@ -232,6 +325,13 @@ export function buildNetwork (data, options = {}) {
     }
   }
 
+  const codeCounts = {}
+  const codeTotals = {}
+  for (const c of codes) {
+    codeCounts[c.id] = visibleCodeCounts.get(c.id) || 0
+    codeTotals[c.id] = weightOf(c.id)
+  }
+
   return {
     nodes: filtered,
     edges,
@@ -239,14 +339,20 @@ export function buildNetwork (data, options = {}) {
       codes: filtered.filter((n) => n.kind === 'code').length,
       quotes: filtered.filter((n) => n.kind === 'quote').length,
       docs: filtered.filter((n) => n.kind === 'doc').length,
-      links: edges.length
+      links: edges.length,
+      totalQuotes: showQuotes ? totalScoped : 0,
+      hiddenQuotes: showQuotes ? Math.max(0, totalScoped - visibleQuotes) : 0,
+      focusCodeId: focusCodeId || null,
+      focusName: focusCodeId ? (codeById.get(focusCodeId)?.name || null) : null,
+      codeCounts,
+      codeTotals
     }
   }
 }
 
 /** Raio do nó conforme o tipo e o número de relações. */
 export function nodeRadius (node) {
-  if (node.kind === 'quote') return 4
+  if (node.kind === 'quote') return node.dotRadius || 4
   if (node.kind === 'doc') return 7 + Math.min(9, Math.sqrt(node.weight || 0) * 1.6)
   const box = nodeSize(node)
   return box.h / 2
@@ -294,40 +400,47 @@ function wrapLines (text, perLine, maxLines) {
  * @param {object} opts { quotes: 'dot' | 'short' | 'text', scale: number }
  */
 export function sizeNodes (nodes, opts = {}) {
-  const { quotes = 'short', scale = 1 } = opts
+  const { quotes = 'short', scale = 1, print = false } = opts
+  const codeFont = print ? 20 : CODE_FONT * scale
+  const codePerLine = print ? 16 : CODE_PER_LINE
+  const codeMinW = print ? 118 : CODE_MIN_W * scale
+  const codeMaxW = print ? 260 : CODE_MAX_W * scale
+  const codePad = print ? 16 : CODE_PAD_X * scale
+  const quoteFont = print ? 16 : 9.5 * Math.min(scale, 1.12)
+  const dotRadius = scale >= 1.1 ? 6 : scale <= 0.9 ? 4 : 5
+
   for (const n of nodes) {
     if (n.kind === 'code') {
-      const size = CODE_FONT * scale
       // Nomes longos quebram em duas linhas em vez de esticar a caixa.
-      const lines = wrapLines(n.label || '', CODE_PER_LINE, 2)
+      const lines = wrapLines(n.label || '', codePerLine, 2)
       const longest = lines.reduce((m, l) => Math.max(m, l.length), 0)
       n.box = {
         w: Math.round(Math.max(
-          CODE_MIN_W * scale,
-          Math.min(CODE_MAX_W * scale, longest * size * 0.62 + CODE_PAD_X * 2 * scale)
+          codeMinW,
+          Math.min(codeMaxW, longest * codeFont * 0.62 + codePad * 2)
         )),
-        h: Math.round((CODE_BASE_H + Math.min(8, Math.sqrt(n.weight || 0) * 1.6)) * scale + (lines.length - 1) * size * 1.3),
-        radius: Math.max(5, 7 * scale),
-        font: size
+        h: Math.round((print ? 46 : CODE_BASE_H * scale) + Math.min(8, Math.sqrt(n.weight || 0) * 1.6) + (lines.length - 1) * codeFont * 1.3),
+        radius: Math.max(5, 7 * (print ? 1.2 : scale)),
+        font: codeFont
       }
       n.lines = lines
     } else if (n.kind === 'quote') {
       if (quotes === 'dot') {
         n.box = null
         n.lines = []
+        n.dotRadius = dotRadius
         continue
       }
       const full = quotes === 'text'
-      const font = (full ? 9.5 : 9.5) * Math.min(scale, 1.12)
-      const perLine = full ? 30 : 28
-      const maxLines = full ? 4 : 1
+      const perLine = print ? 22 : full ? 26 : 28
+      const maxLines = print ? (full ? 3 : 1) : full ? 3 : 1
       const lines = wrapLines(n.text || n.label || '', perLine, maxLines)
       const longest = lines.reduce((m, l) => Math.max(m, l.length), 0)
       n.box = {
-        w: Math.round(Math.max(84 * scale, longest * font * 0.55 + 18)),
-        h: Math.round(lines.length * font * 1.4 + 13),
-        radius: Math.max(4, 5 * scale),
-        font
+        w: Math.round(Math.max((print ? 150 : 84) * (print ? 1 : scale), longest * quoteFont * 0.55 + (print ? 24 : 18))),
+        h: Math.round(lines.length * quoteFont * 1.4 + (print ? 22 : 13)),
+        radius: Math.max(4, 5 * (print ? 1.2 : scale)),
+        font: quoteFont
       }
       n.lines = lines
     } else {
@@ -364,56 +477,127 @@ function nodeHalf (node) {
   return { hw: r, hh: r }
 }
 
+/** Algum par de caixas ainda se sobrepõe? */
+function hasOverlap (nodes) {
+  for (let i = 0; i < nodes.length; i++) {
+    const a = nodes[i]
+    const ha = nodeHalf(a)
+    for (let j = i + 1; j < nodes.length; j++) {
+      const b = nodes[j]
+      const hb = nodeHalf(b)
+      if (Math.abs(b.x - a.x) < ha.hw + hb.hw - 0.5 &&
+          Math.abs(b.y - a.y) < ha.hh + hb.hh - 0.5) return true
+    }
+  }
+  return false
+}
+
+/**
+ * Separa pares que continuam quase na mesma linha depois do resolvedor.
+ * Empurrar no eixo vertical, nesse caso, não cabe na coluna; mover no eixo
+ * horizontal usa o espaço vazio ao lado. Roda antes do ajuste final.
+ */
+function spreadThinOverlaps (nodes, opts = {}) {
+  const { width = 0, height = 0, margin = 12, gap = 12, passes = 40 } = opts
+  const n = nodes.length
+  if (!width || !height || n < 2) return nodes
+  const half = new Array(n)
+  for (let i = 0; i < n; i++) half[i] = nodeHalf(nodes[i])
+  const cx = width / 2
+
+  for (let p = 0; p < passes; p++) {
+    let moved = false
+    for (let i = 0; i < n; i++) {
+      const a = nodes[i]
+      const ha = half[i]
+      for (let j = i + 1; j < n; j++) {
+        const b = nodes[j]
+        const hb = half[j]
+        const ox = ha.hw + hb.hw - Math.abs(b.x - a.x)
+        const oy = ha.hh + hb.hh - Math.abs(b.y - a.y)
+        if (ox <= 0.5 || oy <= 0.5) continue
+        // Só atua em sobreposições rasas (caixas quase lado a lado).
+        if (oy > Math.min(30, Math.min(ha.hh, hb.hh) * 0.7)) continue
+
+        // Empurra para fora o nó mais afastado do centro; a figura cresce para
+        // as laterais, onde há espaço, em vez de comprimir a coluna.
+        const outerFirst = Math.abs(b.x - cx) >= Math.abs(a.x - cx)
+        const order = outerFirst ? [[b, hb], [a, ha]] : [[a, ha], [b, hb]]
+        for (const [node, h] of order) {
+          const dir = node.x >= cx ? 1 : -1
+          const room = dir > 0 ? width - margin - h.hw - node.x : node.x - margin - h.hw
+          if (room < gap) continue
+          node.x += dir * Math.min(ox + gap, room)
+          node.x = Math.max(margin + h.hw, Math.min(width - margin - h.hw, node.x))
+          moved = true
+          break
+        }
+      }
+    }
+    if (!moved) break
+  }
+  return nodes
+}
 /**
  * Afasta nós que se sobrepõem, respeitando o tamanho de cada um.
  * Determinístico: roda sempre na mesma ordem, sem aleatoriedade.
  */
 export function resolveOverlaps (nodes, opts = {}) {
   const { gap = 12, passes = 120, width = 0, height = 0, margin = 12, pinned = null } = opts
-  const shift = new Map(nodes.map((n) => [n.id, { x: 0, y: 0 }]))
+  const n = nodes.length
+  const shiftX = new Float64Array(n)
+  const shiftY = new Float64Array(n)
+  const half = new Array(n)
+  for (let i = 0; i < n; i++) half[i] = nodeHalf(nodes[i])
+
   for (let p = 0; p < passes; p++) {
     let moved = false
-    for (const s of shift.values()) { s.x = 0; s.y = 0 }
-    for (let i = 0; i < nodes.length; i++) {
+    shiftX.fill(0)
+    shiftY.fill(0)
+
+    // Par a par. A rede é limitada a ~250 nós, então comparar todos os pares
+    // custa menos do que montar uma grade a cada passada.
+    for (let i = 0; i < n; i++) {
       const a = nodes[i]
-      const ha = nodeHalf(a)
-      for (let j = i + 1; j < nodes.length; j++) {
+      const ha = half[i]
+      const aFixed = pinned?.has(a.id)
+      for (let j = i + 1; j < n; j++) {
         const b = nodes[j]
-        const hb = nodeHalf(b)
+        const hb = half[j]
         const minX = ha.hw + hb.hw + gap
         const minY = ha.hh + hb.hh + gap
         const dx = b.x - a.x
         const dy = b.y - a.y
         if (Math.abs(dx) >= minX || Math.abs(dy) >= minY) continue
-        const ox = minX - Math.abs(dx)
-        const oy = minY - Math.abs(dy)
-        const aFixed = pinned?.has(a.id)
         const bFixed = pinned?.has(b.id)
         if (aFixed && bFixed) continue
+        const ox2 = minX - Math.abs(dx)
+        const oy2 = minY - Math.abs(dy)
         const wa = aFixed ? 0 : bFixed ? 1 : 0.5
         const wb = bFixed ? 0 : aFixed ? 1 : 0.5
         moved = true
-        if (ox < oy) {
+        if (ox2 < oy2) {
           const s = dx >= 0 ? 1 : -1
-          shift.get(a.id).x -= ox * wa * s
-          shift.get(b.id).x += ox * wb * s
+          shiftX[i] -= ox2 * wa * s
+          shiftX[j] += ox2 * wb * s
         } else {
           const s = dy >= 0 ? 1 : -1
-          shift.get(a.id).y -= oy * wa * s
-          shift.get(b.id).y += oy * wb * s
+          shiftY[i] -= oy2 * wa * s
+          shiftY[j] += oy2 * wb * s
         }
       }
     }
+
     if (!moved) break
     // Aplica só parte do deslocamento: tudo de uma vez faz os nós oscilarem.
     const relax = 0.55
-    for (const node of nodes) {
+    for (let i = 0; i < n; i++) {
+      const node = nodes[i]
       if (pinned?.has(node.id)) continue
-      const s = shift.get(node.id)
-      if (!s.x && !s.y) continue
-      const { hw, hh } = nodeHalf(node)
-      let nx = node.x + s.x * relax
-      let ny = node.y + s.y * relax
+      if (!shiftX[i] && !shiftY[i]) continue
+      const { hw, hh } = half[i]
+      let nx = node.x + shiftX[i] * relax
+      let ny = node.y + shiftY[i] * relax
       if (width && height) {
         nx = Math.max(margin + hw, Math.min(width - margin - hw, nx))
         ny = Math.max(margin + hh, Math.min(height - margin - hh, ny))
@@ -588,7 +772,7 @@ const ARROW_ID = {
  * trechos nascem ao redor do código que os marca — a força apenas acomoda
  * as distâncias, em vez de espalhar tudo sem estrutura.
  */
-function seedPositions (nodes, edges, width, height) {
+function seedPositions (nodes, edges, width, height, seed = 0) {
   const cx = width / 2
   const cy = height / 2
   const codes = nodes
@@ -602,8 +786,9 @@ function seedPositions (nodes, edges, width, height) {
   if (codes.length >= 2 && quotes.length) {
     const rx = width * 0.29
     const ry = height * 0.27
+    const shift = seed % codes.length
     codes.forEach((n, i) => {
-      const a = (i / codes.length) * Math.PI * 2 - Math.PI / 2
+      const a = (((i + shift) % codes.length) / codes.length) * Math.PI * 2 - Math.PI / 2
       n.x = cx + Math.cos(a) * rx
       n.y = cy + Math.sin(a) * ry
     })
@@ -622,7 +807,7 @@ function seedPositions (nodes, edges, width, height) {
       if (code) perCode.set(code.id, idx + 1)
       const ring = Math.floor(idx / 8)
       const radius = 108 + ring * 74
-      const angle = idx * GOLDEN + (code ? 0.4 : 0)
+      const angle = idx * GOLDEN + (code ? 0.4 : 0) + seed * 0.9
       const baseX = code ? code.x : cx
       const baseY = code ? code.y : cy
       q.x = baseX + Math.cos(angle) * radius
@@ -638,7 +823,7 @@ function seedPositions (nodes, edges, width, height) {
 
   const maxR = Math.min(width, height) * 0.42
   nodes.forEach((n, i) => {
-    const angle = i * GOLDEN
+    const angle = i * GOLDEN + seed * 1.3
     const r = nodes.length === 1 ? 0 : Math.sqrt((i + 0.5) / nodes.length) * maxR
     n.x = cx + Math.cos(angle) * r
     n.y = cy + Math.sin(angle) * r
@@ -652,7 +837,7 @@ function seedPositions (nodes, edges, width, height) {
  * @param {object} opts { width, height, iterations, padding }
  */
 export function layoutNetwork (nodes, edges, opts = {}) {
-  const { width = 1000, height = 700, padding = 74, initial = null } = opts
+  const { width = 1000, height = 700, padding = 74, initial = null, seed = 0 } = opts
   if (!nodes.length) return nodes
   if (initial) {
     // Reaproveita o arranjo anterior: ao mudar tamanho ou modo de citação os
@@ -676,9 +861,9 @@ export function layoutNetwork (nodes, edges, opts = {}) {
         n.vy = 0
       })
   } else {
-    seedPositions(nodes, edges, width, height)
+    seedPositions(nodes, edges, width, height, seed)
   }
-  const iterations = opts.iterations ?? (initial ? 150 : 260)
+  const iterations = opts.iterations ?? (initial ? 120 : 160)
 
   const index = new Map(nodes.map((n, i) => [n.id, i]))
   const ideal = (edge) => {
@@ -711,7 +896,7 @@ export function layoutNetwork (nodes, edges, opts = {}) {
     const rx = Math.max(width * 0.27, (codeNodes.length * (maxW + 36)) / (Math.PI * 2))
     const ry = Math.max(height * 0.23, (codeNodes.length * (maxH + 44)) / (Math.PI * 2))
     codeNodes.forEach((node, i) => {
-      const a = (i / codeNodes.length) * Math.PI * 2 - Math.PI / 2
+      const a = (((i + (seed % codeNodes.length)) % codeNodes.length) / codeNodes.length) * Math.PI * 2 - Math.PI / 2
       anchors.set(node.id, { x: cx + Math.cos(a) * rx, y: cy + Math.sin(a) * ry })
     })
   }
@@ -775,9 +960,30 @@ export function layoutNetwork (nodes, edges, opts = {}) {
     width,
     height,
     gap: 18,
-    passes: 500,
+    passes: 240,
     margin: padding
   })
+
+  // Colunas quase alinhadas podem ficar presas com uma sobreposição fina.
+  // Nesse caso, abrir no eixo horizontal usa o espaço ao lado; o resolvedor
+  // abaixo limpa o que sobrar com a folga normal. Só vale para redes pequenas
+  // (as figuras de artigo); em redes densas o custo não compensa.
+  if (nodes.length <= 60 && hasOverlap(nodes)) {
+    spreadThinOverlaps(nodes, {
+      width,
+      height,
+      gap: 12,
+      passes: 40,
+      margin: padding
+    })
+    resolveOverlaps(nodes, {
+      width,
+      height,
+      gap: 12,
+      passes: 240,
+      margin: padding
+    })
+  }
 
   // Se sobrou espaço, amplia o conjunto (nunca reduz): assim a figura ocupa a
   // área disponível sem aproximar caixas e criar sobreposição.
@@ -888,9 +1094,19 @@ export function networkSvg (nodes, edges, opts = {}) {
     title = '',
     subtitle = '',
     showLabels = true,
+    showEdgeLabels = showLabels,
     scale = 1,
-    background = '#ffffff'
+    background = '#ffffff',
+    print = false,
+    totalQuotes = 0,
+    hiddenQuotes = 0,
+    focusLabel = ''
   } = opts
+
+  const titleSize = print ? 30 : 28
+  const subtitleSize = print ? 15 : 13
+  const footerSize = print ? 15 : 12
+  const edgeFont = print ? 15 : 10.5
 
   // Área útil: evita que nós encostem no título ou no rodapé da figura.
   const top = title ? 104 : 24
@@ -910,14 +1126,14 @@ export function networkSvg (nodes, edges, opts = {}) {
     return `<line x1="${g.x1.toFixed(1)}" y1="${g.y1.toFixed(1)}" x2="${g.x2.toFixed(1)}" y2="${g.y2.toFixed(1)}" stroke="${style.color}" stroke-width="${edgeWidth(e)}"${dash}${marker} />`
   }).join('')
 
-  const edgeLabels = showLabels
+  const edgeLabels = showEdgeLabels
     ? edges.map((e) => {
         if (!e.type || e.kind === 'hierarchy') return ''
         const a = byId.get(e.a)
         const b = byId.get(e.b)
         if (!a || !b) return ''
         const pos = edgeLabelPos(a, b, nodes)
-        return `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#6b7280" stroke="#ffffff" stroke-width="3" paint-order="stroke">${escapeXml(e.label || RELATION_TEXT[e.type] || e.type)}</text>`
+        return `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="${edgeFont}" fill="#4b5563" stroke="#ffffff" stroke-width="3" paint-order="stroke">${escapeXml(e.label || RELATION_TEXT[e.type] || e.type)}</text>`
       }).join('')
     : ''
 
@@ -928,10 +1144,10 @@ export function networkSvg (nodes, edges, opts = {}) {
       const y = (n.y - box.h / 2).toFixed(1)
       if (n.kind === 'quote') {
         // Cartão de citação: fundo branco, borda na cor do código e faixa à esquerda.
-        return `<g><rect x="${x}" y="${y}" width="${box.w}" height="${box.h}" rx="${box.radius}" fill="#ffffff" stroke="${n.color}" stroke-width="1.1" /><rect x="${x}" y="${y}" width="3" height="${box.h}" rx="1.5" fill="${n.color}" /></g>`
+        return `<g><rect x="${x}" y="${y}" width="${box.w}" height="${box.h}" rx="${box.radius}" fill="#ffffff" stroke="${n.color}" stroke-width="${print ? 1.9 : 1.1}" /><rect x="${x}" y="${y}" width="${print ? 5 : 3}" height="${box.h}" rx="1.5" fill="${n.color}" /></g>`
       }
-      const ring = `<rect x="${(n.x - box.w / 2 - 2.5).toFixed(1)}" y="${(n.y - box.h / 2 - 2.5).toFixed(1)}" width="${box.w + 5}" height="${box.h + 5}" rx="${box.radius + 2}" fill="none" stroke="${n.color}" stroke-opacity="0.3" stroke-width="1.4" />`
-      return `<g><rect x="${x}" y="${y}" width="${box.w}" height="${box.h}" rx="${box.radius}" fill="${n.color}" stroke="#ffffff" stroke-width="1.6" />${ring}</g>`
+      const ring = `<rect x="${(n.x - box.w / 2 - 2.5).toFixed(1)}" y="${(n.y - box.h / 2 - 2.5).toFixed(1)}" width="${box.w + 5}" height="${box.h + 5}" rx="${box.radius + 2}" fill="none" stroke="${n.color}" stroke-opacity="0.3" stroke-width="${print ? 2 : 1.4}" />`
+      return `<g><rect x="${x}" y="${y}" width="${box.w}" height="${box.h}" rx="${box.radius}" fill="${n.color}" stroke="#ffffff" stroke-width="${print ? 2.4 : 1.6}" />${ring}</g>`
     }
     const r = nodeRadius(n)
     const opacity = n.kind === 'quote' ? 0.85 : 1
@@ -943,7 +1159,7 @@ export function networkSvg (nodes, edges, opts = {}) {
         const pos = nodeLabelLayout(n, width)
         if (n.kind === 'quote' && !pos.inside && !n.selected) return ''
         const color = pos.inside
-          ? (n.kind === 'quote' ? '#374151' : '#ffffff')
+          ? (n.kind === 'quote' ? '#374151' : CODE_TEXT_COLOR)
           : n.kind === 'quote' ? '#4b5563' : '#1f2937'
         const family = 'Helvetica Neue, Helvetica, Arial, sans-serif'
         if (pos.inside && pos.lines.length > 1) {
@@ -963,6 +1179,12 @@ export function networkSvg (nodes, edges, opts = {}) {
     docs: nodes.filter((n) => n.kind === 'doc').length
   }
 
+  const shownQuotes = stats.quotes
+  const quoteLabel = totalQuotes > shownQuotes
+    ? `${shownQuotes} de ${totalQuotes} trechos`
+    : `${shownQuotes} trechos`
+  const focusNote = focusLabel ? ` · ${focusLabel}` : ''
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(width * scale)}" height="${Math.round(height * scale)}" viewBox="0 0 ${width} ${height}">
 <rect width="${width}" height="${height}" fill="${background}" />
 <defs>
@@ -979,13 +1201,13 @@ export function networkSvg (nodes, edges, opts = {}) {
     <path d="M0,0 L10,5 L0,10 z" fill="#9a8bc4" />
   </marker>
 </defs>
-${title ? `<text x="56" y="64" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="28" font-weight="700" fill="#15294b">${escapeXml(title)}</text>` : ''}
-${subtitle ? `<text x="56" y="92" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#6b7280">${escapeXml(subtitle)}</text>` : ''}
+${title ? `<text x="56" y="${64}" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="${titleSize}" font-weight="700" fill="#15294b">${escapeXml(title)}</text>` : ''}
+${subtitle ? `<text x="56" y="${92}" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="${subtitleSize}" fill="#4b5563">${escapeXml(subtitle)}</text>` : ''}
 <g transform="translate(${offsetX.toFixed(1)}, ${top}) scale(${k.toFixed(4)})">${edgeLines}${edgeLabels}${nodeShapes}${labels}</g>
 <g transform="translate(56, ${height - 44})">
-  <text font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#6b7280">${stats.codes} códigos · ${stats.quotes} trechos${stats.docs ? ` · ${stats.docs} documentos` : ''} · Codificando</text>
+  <text font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="${footerSize}" fill="#4b5563">${stats.codes} códigos · ${quoteLabel}${stats.docs ? ` · ${stats.docs} documentos` : ''}${focusNote} · Codificando</text>
 </g>
-<g transform="translate(${width - 250}, ${height - 48})" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#6b7280">
+<g transform="translate(${width - (print ? 300 : 250)}, ${height - 48})" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="${footerSize}" fill="#4b5563">
   <rect x="0" y="-12" width="18" height="13" rx="3" fill="#4A90E2" />
   <text x="26" y="0">código</text>
   ${nodes.some((n) => n.kind === 'quote' && nodeSize(n))
