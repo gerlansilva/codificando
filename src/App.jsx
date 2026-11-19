@@ -322,7 +322,19 @@ export default function App () {
   }, [pwModal, finishOpen])
 
   useEffect(() => {
+    const SECTION_KEYS = {
+      1: '/documents',
+      2: '/codes',
+      3: '/snippets',
+      4: '/networks',
+      5: '/comments',
+      6: '/reports'
+    }
     const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && SECTION_KEYS[e.key]) {
+        e.preventDefault()
+        navigate(SECTION_KEYS[e.key])
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault()
         navigate('/search')
