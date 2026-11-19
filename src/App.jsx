@@ -3,6 +3,7 @@ import { loadData, saveData, uid, emptyData, loadSettings, saveSettings, setProj
 import { deleteBinary } from './lib/files.js'
 import { moveCode as moveCodeFn, nextColor, mergeCodeList } from './lib/codes.js'
 import { bridge } from './lib/bridge.js'
+import { modKey } from './lib/platform.js'
 import Sidebar from './components/Sidebar.jsx'
 import AddTranscript from './pages/AddTranscript.jsx'
 import Transcripts from './pages/Transcripts.jsx'
@@ -693,7 +694,7 @@ export default function App () {
       <div className={'app' + (collapsed ? ' sidebar-collapsed' : '')}>
         <div className="drag-strip" />
         {collapsed && (
-          <button className="sidebar-reopen" title="Mostrar menu (⌘B)" onClick={() => setCollapsed(false)}>
+          <button className="sidebar-reopen" title={`Mostrar menu (${modKey('B')})`} onClick={() => setCollapsed(false)}>
             <span aria-hidden="true">☰</span>
           </button>
         )}

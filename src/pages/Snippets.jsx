@@ -5,6 +5,7 @@ import ContextMenu from '../components/ContextMenu.jsx'
 import RelationModal, { QUOTE_RELATIONS } from '../components/RelationModal.jsx'
 import Toast from '../components/Toast.jsx'
 import { uid } from '../data/store.js'
+import { modKey } from '../lib/platform.js'
 
 /**
  * Citações em tabela compacta (como no Codificando): documento, página,
@@ -443,7 +444,7 @@ export default function Snippets () {
       </div>
       {toast && (
         <Toast
-          text={toast + ' · ⌘Z para desfazer'}
+          text={toast + ` · ${modKey('Z')} para desfazer`}
           onUndo={undo}
           onClose={() => setToast(null)}
         />

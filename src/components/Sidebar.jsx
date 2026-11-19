@@ -3,6 +3,7 @@ import { navigate, useData } from '../App.jsx'
 import Logo from './Logo.jsx'
 import Icon from './Icon.jsx'
 import wordmark from '../assets/codificando-wordmark.png'
+import { modKey } from '../lib/platform.js'
 
 const NAV = [
   { key: 'search', label: 'Buscar', path: 'search', icon: 'search' },
@@ -33,7 +34,7 @@ export default function Sidebar ({ route, collapsed, onCollapse }) {
           <Logo size={34} />
           <img className="brand-wordmark" src={wordmark} alt="Codificando" />
         </button>
-        <button className="collapse-btn" title="Recolher menu (⌘B)" onClick={onCollapse}>«</button>
+        <button className="collapse-btn" title={`Recolher menu (${modKey('B')})`} onClick={onCollapse}>«</button>
       </div>
 
       <nav className="sidebar-nav">

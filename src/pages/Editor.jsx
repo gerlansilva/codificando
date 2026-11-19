@@ -12,6 +12,7 @@ import PdfViewer from '../components/PdfViewer.jsx'
 import { quoteToText, copyText } from '../lib/clipboard.js'
 import { findHits, indexOnPage } from '../lib/pages.js'
 import Toast from '../components/Toast.jsx'
+import { modKey, shiftModKey } from '../lib/platform.js'
 import { makeSearchRegex } from '../lib/search.js'
 import { tint } from '../lib/colors.js'
 
@@ -353,8 +354,8 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
       {activeTerm && (
         <>
           <span className="doc-find-count">{hits.length ? `${findPos + 1}/${hits.length}` : '0/0'}</span>
-          <button className="doc-find-btn" disabled={!hits.length} title="Anterior (⇧⌘G)" onClick={() => goFind(-1)}>‹</button>
-          <button className="doc-find-btn" disabled={!hits.length} title="Próxima (⌘G)" onClick={() => goFind(1)}>›</button>
+          <button className="doc-find-btn" disabled={!hits.length} title={`Anterior (${shiftModKey('G')})`} onClick={() => goFind(-1)}>‹</button>
+          <button className="doc-find-btn" disabled={!hits.length} title={`Próxima (${modKey('G')})`} onClick={() => goFind(1)}>›</button>
           <button className="doc-find-btn" title="Limpar busca (Esc)" onClick={() => { setFindQuery(''); setFindPos(0) }}>×</button>
         </>
       )}
@@ -1294,7 +1295,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
             >
               {copied ? 'Copiado' : 'Copiar'}
             </button>
-            <span className="quote-hint">Delete remove a citação · ⌘Z desfaz</span>
+            <span className="quote-hint">{`Delete remove a citação · ${modKey('Z')} desfaz`}</span>
           </div>
         </div>
       )}
@@ -1435,7 +1436,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
       )}
       {toast && (
         <Toast
-          text={toast + ' · ⌘Z para desfazer'}
+          text={toast + ` · ${modKey('Z')} para desfazer`}
           onUndo={undo}
           onClose={() => setToast(null)}
         />
