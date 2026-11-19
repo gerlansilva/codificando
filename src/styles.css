@@ -1951,6 +1951,57 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
 .topbar h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.035em; color: var(--navy); margin: 0; }
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
 
+/* título do documento: clique para renomear */
+.doc-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.doc-title h1 {
+  cursor: text;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 4px;
+  padding: 1px 3px;
+  margin-left: -3px;
+}
+.doc-title h1:hover { background: var(--gray-100, #f2f5f9); }
+.doc-title-edit {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--gray-500, #7b8794);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease;
+}
+.doc-title:hover .doc-title-edit,
+.doc-title-edit:focus-visible { opacity: 1; }
+.doc-title-edit:hover { background: var(--gray-100, #f2f5f9); color: var(--navy); }
+.doc-title-input {
+  font-family: var(--font-sans);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  color: var(--navy);
+  border: 0;
+  border-bottom: 2px solid var(--blue, #4A90E2);
+  background: #fff;
+  padding: 1px 3px;
+  margin-left: -3px;
+  outline: none;
+  min-width: 240px;
+  max-width: 60vw;
+}
+
 /* páginas e cartões */
 .content { background: #fff; }
 .page { padding: 0 26px 44px; background: #fff; }

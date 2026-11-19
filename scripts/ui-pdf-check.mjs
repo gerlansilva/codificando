@@ -218,12 +218,16 @@ try {
     const { data: px } = ctx.getImageData(0, 0, img.width, img.height)
     let dark = 0
     let min = 255
+    const lums = []
     for (let i = 0; i < px.length; i += 4) {
       const lum = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]
+      lums.push(lum)
       if (lum < 140) dark++
       if (lum < min) min = lum
     }
-    return { dark, min: Math.round(min), total: px.length / 4 }
+    lums.sort((a, b) => a - b)
+    const median = lums[Math.floor(lums.length * 0.75)]
+    return { dark, min: Math.round(min), fill: Math.round(median), total: px.length / 4 }
   }, b64)
 
   for (const [i, h] of check.entries()) {
@@ -251,13 +255,49 @@ try {
     const stats = await decode(box)
     h.text = stats
     if (stats.dark < 20) problems.push(`marcação ${i} esconde o texto (${stats.dark} pixels escuros)`)
+    if (stats.fill > 238) problems.push(`marcação ${i} quase invisível (fundo ${stats.fill})`)
   }
 
+  // 5. renomear o documento direto na área de codificação
+  await page.click('.doc-title-edit')
+  await page.waitForSelector('.doc-title-input')
+  await page.$eval('.doc-title-input', (el) => { el.value = '' })
+  await page.type('.doc-title-input', 'Documento renomeado')
+  await page.keyboard.press('Enter')
+  await new Promise((r) => setTimeout(r, 500))
+  const rename = await page.evaluate(() => {
+    const d = JSON.parse(localStorage.getItem('investigando.data.v1'))
+    return {
+      title: document.querySelector('.topbar h1')?.textContent || '',
+      input: !!document.querySelector('.doc-title-input'),
+      saved: d.transcripts[0].name
+    }
+  })
+  if (rename.input) problems.push('o campo de renomear continuou aberto')
+  if (rename.title !== 'Documento renomeado') problems.push(`título após renomear: "${rename.title}"`)
+  if (rename.saved !== 'Documento renomeado') problems.push(`nome salvo: "${rename.saved}"`)
+
+  // Esc cancela: o nome anterior continua
+  await page.click('.doc-title-edit')
+  await page.waitForSelector('.doc-title-input')
+  await page.type('.doc-title-input', ' nao salvar')
+  await page.keyboard.press('Escape')
+  await new Promise((r) => setTimeout(r, 400))
+  const cancel = await page.evaluate(() => {
+    const d = JSON.parse(localStorage.getItem('investigando.data.v1'))
+    return { title: document.querySelector('.topbar h1')?.textContent || '', saved: d.transcripts[0].name }
+  })
+  if (cancel.title !== 'Documento renomeado' || cancel.saved !== 'Documento renomeado') {
+    problems.push('Esc não cancelou a renomeação')
+  }
+
+  await page.mouse.move(4, 4)
+  await new Promise((r) => setTimeout(r, 200))
   await page.screenshot({ path: path.join(OUT, 'editor.png') })
   const el = await page.$('.pdf-page')
   if (el) await el.screenshot({ path: path.join(OUT, 'pagina.png') })
 
-  const report = { platform: process.platform, browser: findBrowser(), base, check, problems }
+  const report = { platform: process.platform, browser: findBrowser(), base, check, rename, cancel, problems }
   fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report, null, 2))
 } finally {

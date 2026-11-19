@@ -8,7 +8,7 @@ ambiente local ou dos *secrets* do GitHub Actions.
 ## Visão geral
 
 ```
-tag v0.2.1  →  .github/workflows/release.yml
+tag v0.2.2  →  .github/workflows/release.yml
                  ├─ macOS: .app/.dmg assinados com Developer ID + notarizados
                  ├─ Windows: instaladores .msi/.exe
                  ├─ (se houver chave do updater) .tar.gz + .sig + latest.json
@@ -179,7 +179,7 @@ Nunca faça commit da chave privada. Ela fica fora do repositório
 ### Como a atualização chega ao usuário
 
 1. Suba a versão em `src-tauri/tauri.conf.json` (é ela que o updater compara).
-2. Crie a tag e envie: `git tag v0.2.1 && git push origin v0.2.1`.
+2. Crie a tag e envie: `git tag v0.2.2 && git push origin v0.2.2`.
 3. O workflow cria um release em rascunho com os artefatos. Revise e publique.
 4. O endpoint `/releases/latest/download/latest.json` passa a apontar para a
    nova versão (rascunhos e pré-releases são ignorados pelo GitHub).

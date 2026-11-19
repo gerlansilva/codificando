@@ -39,6 +39,9 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [participant, setParticipant] = useState(false)
   const [renameValue, setRenameValue] = useState(transcript.name)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState(transcript.name)
+  const cancelTitleRef = useRef(false)
   const [panelQuery, setPanelQuery] = useState('')
   const [appliedHere, setAppliedHere] = useState([])
   const [hoverCode, setHoverCode] = useState(null)
@@ -772,6 +775,22 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
   }
 
   const treeRows = useMemo(() => flattenTree(data.codes), [data.codes])
+  const startTitleEdit = () => {
+    setTitleDraft(transcript.name)
+    setEditingTitle(true)
+  }
+
+  const commitTitle = () => {
+    if (cancelTitleRef.current) {
+      cancelTitleRef.current = false
+      setEditingTitle(false)
+      return
+    }
+    const name = titleDraft.trim()
+    if (name && name !== transcript.name) updateTranscript(transcript.id, { name })
+    setEditingTitle(false)
+  }
+
   const stats = useMemo(() => codeStats(data.codes, excerpts), [data.codes, excerpts])
   const codeList = treeRows
     .filter(({ code }) => !isHidden(code))
@@ -784,7 +803,42 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
   return (
     <>
       <div className="topbar">
-        <h1>{transcript.name}</h1>
+        {editingTitle
+          ? (
+            <input
+              className="doc-title-input"
+              value={titleDraft}
+              autoFocus
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitTitle()
+                if (e.key === 'Escape') {
+                  cancelTitleRef.current = true
+                  setEditingTitle(false)
+                  e.currentTarget.blur()
+                }
+              }}
+              aria-label="Nome do documento"
+            />
+          )
+          : (
+            <div className="doc-title">
+              <h1 title={transcript.name} onClick={startTitleEdit}>{transcript.name}</h1>
+              <button
+                type="button"
+                className="doc-title-edit"
+                title="Renomear documento"
+                aria-label="Renomear documento"
+                onClick={startTitleEdit}
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                  <path d="M4 20h4l10-10-4-4L4 16v4z" />
+                  <path d="M13.5 6.5l4 4" />
+                </svg>
+              </button>
+            </div>
+          )}
         <div className="topbar-actions">
           {isPdf
             ? (
@@ -799,6 +853,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
             <button className="btn" onClick={() => setMenu(menu === 'more' ? null : 'more')}>⋯</button>
             {menu === 'more' && (
               <div className="dropdown-menu" style={{ right: 0, left: 'auto' }}>
+                <button onClick={() => { setMenu(null); startTitleEdit() }}>Renomear documento</button>
                 <button onClick={exportTxt}>Exportar documento (.txt)</button>
                 <button onClick={() => { setMenu(null); navigate('/documents/' + transcript.id + '/print') }}>
                   Exportar com códigos (.pdf)
