@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { makeSearchRegex } from '../lib/search.js'
-import { tint } from '../lib/colors.js'
+import { tintAlpha } from '../lib/colors.js'
 import { readBinary } from '../lib/files.js'
 import { ensurePdfJs } from '../lib/importers.js'
 
@@ -781,6 +781,9 @@ function PdfPage ({ doc, number, size, scale, excerpts, selectionRects, onHighli
       container.innerHTML = ''
       container.style.width = `${Math.floor(viewport.width)}px`
       container.style.height = `${Math.floor(viewport.height)}px`
+      // O pdf.js dimensiona os spans com `calc(var(--scale-factor) * X)`;
+      // sem a variável o texto fica com o tamanho errado e a seleção desalinha.
+      container.style.setProperty('--scale-factor', String(viewport.scale))
       const textContent = await page.getTextContent()
       if (cancelled) return
       await buildTextLayer(textContent.items, viewport, container)
@@ -842,7 +845,7 @@ function PdfPage ({ doc, number, size, scale, excerpts, selectionRects, onHighli
               top: `${r.y * 100}%`,
               width: `${r.w * 100}%`,
               height: `${r.h * 100}%`,
-              background: tint(ex.color || '#4A90E2', ex.codeId === hoverCodeId ? 0.38 : 0.24),
+              background: tintAlpha(ex.color || '#4A90E2', ex.codeId === hoverCodeId ? 0.32 : 0.2),
               boxShadow: ex.codeId === hoverCodeId ? `0 0 0 2px ${(ex.color || '#4A90E2')}` : `inset 0 -2px 0 ${(ex.color || '#4A90E2')}`
             }}
             onClick={(e) => { e.stopPropagation(); onHighlightClick(ex, e) }}

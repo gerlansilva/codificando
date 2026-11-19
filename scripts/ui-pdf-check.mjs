@@ -87,7 +87,7 @@ try {
     args: ['--hide-scrollbars', '--force-color-profile=srgb']
   })
   const page = await browser.newPage()
-  await page.setViewport({ width: 1360, height: 900, deviceScaleFactor: 2 })
+  await page.setViewport({ width: 1360, height: 900, deviceScaleFactor: Number(process.env.DPR || 1.25) })
   page.on('pageerror', (e) => problems.push('pageerror: ' + e.message))
 
   await page.goto(BASE, { waitUntil: 'networkidle2' })
@@ -204,8 +204,28 @@ try {
     if (!h.overText) problems.push(`marcação ${i} fora do texto`)
   }
 
-  // 4. o pixel no centro da marcação precisa estar pintado (não branco).
+  // 4. pixel pintado no centro da marcação e texto ainda legível por baixo.
   // O screenshot é decodificado pelo próprio navegador, sem dependências.
+  const decode = async (b64) => page.evaluate(async (data) => {
+    const img = new Image()
+    img.src = 'data:image/png;base64,' + data
+    await img.decode()
+    const c = document.createElement('canvas')
+    c.width = img.width
+    c.height = img.height
+    const ctx = c.getContext('2d')
+    ctx.drawImage(img, 0, 0)
+    const { data: px } = ctx.getImageData(0, 0, img.width, img.height)
+    let dark = 0
+    let min = 255
+    for (let i = 0; i < px.length; i += 4) {
+      const lum = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]
+      if (lum < 140) dark++
+      if (lum < min) min = lum
+    }
+    return { dark, min: Math.round(min), total: px.length / 4 }
+  }, b64)
+
   for (const [i, h] of check.entries()) {
     const png = await page.screenshot({ encoding: 'base64', clip: { x: h.center.x, y: h.center.y, width: 1, height: 1 } })
     const pixel = await page.evaluate(async (b64) => {
@@ -222,6 +242,15 @@ try {
     h.pixel = pixel
     const [r, g, b] = pixel
     if (r > 250 && g > 250 && b > 250) problems.push(`marcação ${i} não aparece no pixel (branco)`)
+
+    // o texto marcado precisa continuar visível: há glifos escuros na faixa
+    const box = await page.screenshot({
+      encoding: 'base64',
+      clip: { x: h.rect.x, y: h.rect.y, width: Math.max(2, h.rect.w), height: Math.max(2, h.rect.h) }
+    })
+    const stats = await decode(box)
+    h.text = stats
+    if (stats.dark < 20) problems.push(`marcação ${i} esconde o texto (${stats.dark} pixels escuros)`)
   }
 
   await page.screenshot({ path: path.join(OUT, 'editor.png') })
