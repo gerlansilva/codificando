@@ -13,3 +13,4 @@ src-tauri/gen/
 *.key
 *.pem
 .opencode/
+qa/

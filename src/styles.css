@@ -777,11 +777,9 @@ button { font-family: inherit; }
 .pdf-page .textLayer ::selection { background: rgba(74, 144, 226, 0.32); }
 .pdf-highlight {
   position: absolute;
-  z-index: 5; /* abaixo do texto: não bloqueia a seleção */
+  z-index: 5;
   pointer-events: none;
   border-radius: 2px;
-  mix-blend-mode: normal;
-  outline: 2px solid red;
 }
 .pdf-page-number {
   position: absolute;
@@ -1735,7 +1733,6 @@ label.btn { display: block; cursor: pointer; }
   .codebook-body.has-detail { grid-template-columns: 1fr; }
 }
 
-.pdf-highlight { opacity: 1; }
 
 /* o destaque da seleção é o nosso overlay; o nativo fica invisível */
 .pdf-pages, .pdf-pages * { -webkit-user-select: none; user-select: none; }

@@ -72,6 +72,33 @@ jobs:
       - run: npm run build
       - run: cargo check --manifest-path src-tauri/Cargo.toml
 
+  windows-tests:
+    name: Testes no Windows (Edge)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      # Abre o app no Edge (mesmo motor do WebView2) e confere as marcações
+      # do PDF: presença, alinhamento e pixel pintado.
+      - name: Marcações do PDF no Edge
+        run: node scripts/ui-pdf-check.mjs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-qa-pdf
+          path: qa/pdf-highlights/
+          if-no-files-found: warn
+
   build-macos:
     name: Instalador macOS (.dmg)
     runs-on: macos-latest
