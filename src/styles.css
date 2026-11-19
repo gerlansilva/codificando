@@ -1344,27 +1344,6 @@ label.btn { display: block; cursor: pointer; }
 .chips-inline { display: inline-flex; gap: 8px; flex-wrap: nowrap; overflow: hidden; }
 .chip-mini { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; white-space: nowrap; }
 
-.avatar-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  overflow: hidden;
-  flex: none;
-  background: #8ECAE6;
-}
-.avatar-badge svg { border-radius: 50%; }
-.avatar-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
-.avatar-option {
-  border: 2px solid transparent;
-  background: transparent;
-  padding: 3px;
-  border-radius: 50%;
-  cursor: pointer;
-  line-height: 0;
-}
-.avatar-option:hover { border-color: var(--gray-300); }
-.avatar-option.active { border-color: var(--blue); }
 .project-actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
 .sidebar-user {
   display: flex;
@@ -1380,11 +1359,6 @@ label.btn { display: block; cursor: pointer; }
 }
 .user-name { display: block; font-size: 13.5px; color: #2E2826; }
 .sidebar-user:hover .user-name { color: #000; }
-
-.avatar-img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
-.avatar-badge--fallback { background: transparent; }
-.avatar-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.avatar-hint { font-size: 11.5px; color: var(--text-muted); }
 
 .sidebar-project { gap: 10px; padding: 12px 18px 16px; }
 .sidebar-footer { padding: 16px 18px; }
@@ -2007,10 +1981,6 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
 .settings-card > .input, .settings-card > .settings-textarea { width: 100%; }
 .settings-textarea { border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px; font: inherit; font-size: 13px; color: var(--text-body); resize: vertical; min-height: 72px; }
 .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
-.settings-avatar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-.settings-avatars { display: flex; flex-wrap: wrap; gap: 8px; }
-.settings-avatars .avatar-option { border: 2px solid transparent; background: none; border-radius: 50%; padding: 2px; cursor: pointer; }
-.settings-avatars .avatar-option.active { border-color: var(--brand-blue); }
 .settings-kv { display: flex; gap: 12px; align-items: baseline; font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px; }
 .settings-kv span { width: 90px; flex: none; }
 .settings-kv code { font-size: 12px; color: var(--text-body); background: #f6f8fb; border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; word-break: break-all; }

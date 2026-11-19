@@ -401,38 +401,6 @@ export default function App () {
       navigate('/home')
       return path
     },
-    setAvatarRef: (ref) => {
-      setSettings(saveSettings({ avatarRef: ref || null }))
-    },
-    pickAvatars: async () => {
-      const picked = await bridge.pickImages()
-      if (!picked || !picked.length) return []
-      const list = []
-      for (const p of picked) {
-        const b64 = await bridge.readPath(p.path)
-        if (!b64) continue
-        const ext = (p.name.split('.').pop() || 'png').toLowerCase()
-        const key = await bridge.saveBinary(p.name, b64, 'avatar-' + uid() + '.' + ext)
-        if (!key) continue
-        list.push({ name: p.name, key })
-      }
-      if (list.length) {
-        const current = loadSettings().avatars || []
-        setSettings(saveSettings({ avatars: [...current, ...list] }))
-      }
-      return list
-    },
-    pickAvatar: async () => {
-      const path = await bridge.pickImage()
-      if (!path) return null
-      const b64 = await bridge.readPath(path)
-      if (!b64) return null
-      const ext = (path.split('.').pop() || 'png').toLowerCase()
-      const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png'
-      const dataUrl = `data:${mime};base64,${b64}`
-      setSettings(saveSettings({ avatarData: dataUrl }))
-      return dataUrl
-    },
     repairExcerptTexts: (transcriptId, map) => {
       update((d) => ({
         ...d,
