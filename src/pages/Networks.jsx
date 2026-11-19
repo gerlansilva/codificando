@@ -3,14 +3,19 @@ import { navigate, useData } from '../App.jsx'
 import { bridge } from '../lib/bridge.js'
 import {
   buildNetwork,
+  edgeGeometry,
   edgeStyle,
+  edgeWidth,
+  isDirected,
+  nodeLabelLayout,
+  RELATION_TEXT,
   layoutNetwork,
   layoutRadial,
   networkSvg,
   nodeRadius
 } from '../lib/network.js'
 import Icon from '../components/Icon.jsx'
-import { CODE_RELATIONS, QUOTE_RELATIONS, relationLabel } from '../components/RelationModal.jsx'
+import { CODE_RELATIONS, QUOTE_RELATIONS, relationLabelFor } from '../components/RelationModal.jsx'
 
 const W = 1000
 const H = 700
@@ -24,7 +29,8 @@ export default function Networks () {
   const [showQuotes, setShowQuotes] = useState(true)
   const [showDocs, setShowDocs] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
-  const [mode, setMode] = useState('force')
+  const [layoutMode, setLayoutMode] = useState('force')
+  const [view, setView] = useState('coding')
   const [selected, setSelected] = useState(null)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -37,18 +43,24 @@ export default function Networks () {
   const [, forceRender] = useState(0)
 
   const network = useMemo(
-    () => buildNetwork(data, { showCodes, showQuotes, showDocs, maxQuotes: 240 }),
-    [data, showCodes, showQuotes, showDocs]
+    () => buildNetwork(data, {
+      mode: view,
+      showCodes,
+      showQuotes: view === 'coding' && showQuotes,
+      showDocs: view === 'coding' && showDocs,
+      maxQuotes: 240
+    }),
+    [data, view, showCodes, showQuotes, showDocs]
   )
 
   // O layout só é recalculado quando os dados, o modo ou o botão Reorganizar mudam.
   // Arrastar um nó não pode disparar um novo layout — por isso o seed separado.
   const nodes = useMemo(() => {
     const copy = network.nodes.map((n) => ({ ...n }))
-    if (mode === 'radial') layoutRadial(copy, network.edges, { width: W, height: H })
+    if (layoutMode === 'radial') layoutRadial(copy, network.edges, { width: W, height: H })
     else layoutNetwork(copy, network.edges, { width: W, height: H })
     return copy
-  }, [network, mode, layoutSeed])
+  }, [network, layoutMode, layoutSeed])
 
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
   const neighbours = useMemo(() => {
@@ -65,7 +77,7 @@ export default function Networks () {
   const selectedNode = selected ? byId.get(selected) : null
   const highlighted = selected ? (neighbours.get(selected) || new Set()) : null
 
-  useEffect(() => { setSelected(null) }, [mode])
+  useEffect(() => { setSelected(null) }, [layoutMode, view])
 
   const flash = (message) => {
     setNotice(message)
@@ -245,6 +257,36 @@ export default function Networks () {
     : []
 
   // Relações nomeadas (hierarquia e vínculos criados pelo pesquisador).
+  // Trechos codificados do código selecionado (painel lateral, como no atlas.ti).
+  const selectedQuotes = useMemo(() => {
+    if (!selectedNode || selectedNode.kind !== 'code') return []
+    const byQuote = new Map()
+    for (const e of data.excerpts || []) {
+      if (e.codeId !== selectedNode.refId) continue
+      const key = String(e.quoteId || e.id)
+      if (!byQuote.has(key)) {
+        byQuote.set(key, {
+          id: key,
+          text: e.text,
+          page: e.page,
+          transcriptId: e.transcriptId,
+          codes: [e.codeId]
+        })
+      }
+    }
+    return [...byQuote.values()].slice(0, 14)
+  }, [selectedNode, data.excerpts])
+
+  const edgeWeightBetween = useMemo(() => {
+    const map = new Map()
+    for (const e of network.edges) {
+      if (e.kind !== 'cooccurrence') continue
+      map.set(e.a + '|' + e.b, e.weight)
+      map.set(e.b + '|' + e.a, e.weight)
+    }
+    return map
+  }, [network.edges])
+
   const typedLinks = selectedNode
     ? network.edges
         .filter((e) => (e.a === selectedNode.id || e.b === selectedNode.id) &&
@@ -253,9 +295,10 @@ export default function Networks () {
           const otherId = e.a === selectedNode.id ? e.b : e.a
           const other = byId.get(otherId)
           if (!other) return null
-          const relation = relationLabel(
+          const relation = relationLabelFor(
             e.type,
-            e.kind === 'codeLink' ? CODE_RELATIONS : QUOTE_RELATIONS
+            e.kind === 'codeLink' ? CODE_RELATIONS : QUOTE_RELATIONS,
+            e.a === selectedNode.id
           )
           return { edge: e, other, relation: e.kind === 'hierarchy' ? 'hierarquia' : relation }
         })
@@ -281,18 +324,36 @@ export default function Networks () {
         <div className="net-page">
           <div className="net-toolbar">
             <div className="net-toggles" role="group" aria-label="Elementos da rede">
-              <label className="net-toggle">
-                <input type="checkbox" checked={showCodes} onChange={(e) => setShowCodes(e.target.checked)} />
-                Códigos
+              <label className="net-field net-view">
+                <span>Visão</span>
+                <select className="input" value={view} onChange={(e) => setView(e.target.value)}>
+                  <option value="coding">Codificação</option>
+                  <option value="cooccurrence">Coocorrência</option>
+                </select>
               </label>
-              <label className="net-toggle">
-                <input type="checkbox" checked={showQuotes} onChange={(e) => setShowQuotes(e.target.checked)} />
-                Trechos
-              </label>
-              <label className="net-toggle">
-                <input type="checkbox" checked={showDocs} onChange={(e) => setShowDocs(e.target.checked)} />
-                Documentos
-              </label>
+              <span className="net-sep" />
+              {view === 'coding'
+                ? (
+                  <>
+                    <label className="net-toggle">
+                      <input type="checkbox" checked={showCodes} onChange={(e) => setShowCodes(e.target.checked)} />
+                      Códigos
+                    </label>
+                    <label className="net-toggle">
+                      <input type="checkbox" checked={showQuotes} onChange={(e) => setShowQuotes(e.target.checked)} />
+                      Trechos
+                    </label>
+                    <label className="net-toggle">
+                      <input type="checkbox" checked={showDocs} onChange={(e) => setShowDocs(e.target.checked)} />
+                      Documentos
+                    </label>
+                  </>
+                  )
+                : (
+                  <span className="net-mode-note" title="A espessura da linha é o número de trechos em que os dois códigos aparecem juntos.">
+                    Códigos · aresta = trechos em comum
+                  </span>
+                  )}
               <span className="net-sep" />
               <label className="net-toggle">
                 <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
@@ -301,15 +362,19 @@ export default function Networks () {
               <span className="net-sep" />
               <label className="net-field">
                 <span>Layout</span>
-                <select className="input" value={mode} onChange={(e) => setMode(e.target.value)}>
+                <select className="input" value={layoutMode} onChange={(e) => setLayoutMode(e.target.value)}>
                   <option value="force">Força</option>
                   <option value="radial">Radial</option>
                 </select>
               </label>
             </div>
             <span className="net-count">
-              {network.stats.codes} códigos · {network.stats.quotes} trechos
-              {network.stats.docs ? ` · ${network.stats.docs} documentos` : ''}
+              {view === 'cooccurrence'
+                ? `${network.stats.codes} códigos · ${network.stats.links} coocorrências`
+                : <>
+                    {network.stats.codes} códigos · {network.stats.quotes} trechos
+                    {network.stats.docs ? ` · ${network.stats.docs} documentos` : ''}
+                  </>}
             </span>
           </div>
 
@@ -340,6 +405,15 @@ export default function Networks () {
                       <pattern id="net-grid" width="40" height="40" patternUnits="userSpaceOnUse">
                         <path d="M40 0H0V40" fill="none" stroke="#f1f4f8" strokeWidth="1" />
                       </pattern>
+                      <marker id="net-arrow-code" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                        <path d="M0,0 L10,5 L0,10 z" fill="#7d95b4" />
+                      </marker>
+                      <marker id="net-arrow-quote" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                        <path d="M0,0 L10,5 L0,10 z" fill="#c9a227" />
+                      </marker>
+                      <marker id="net-arrow-hierarchy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                        <path d="M0,0 L10,5 L0,10 z" fill="#b8c0cb" />
+                      </marker>
                     </defs>
                     <rect width={W} height={H} fill="#fff" />
                     <rect width={W} height={H} fill="url(#net-grid)" />
@@ -350,18 +424,28 @@ export default function Networks () {
                         if (!a || !b) return null
                         const style = edgeStyle(e)
                         const dim = selected && !(e.a === selected || e.b === selected)
+                        const g = edgeGeometry(a, b, e)
+                        const arrow = isDirected(e)
+                          ? `url(#net-arrow-${e.kind === 'codeLink' ? 'code' : e.kind === 'quoteLink' ? 'quote' : 'hierarchy'})`
+                          : undefined
                         return (
-                          <line
-                            key={e.id}
-                            x1={a.x}
-                            y1={a.y}
-                            x2={b.x}
-                            y2={b.y}
-                            stroke={style.color}
-                            strokeWidth={style.width}
-                            strokeDasharray={style.dash || undefined}
-                            strokeOpacity={dim ? 0.25 : 0.9}
-                          />
+                          <g key={e.id} opacity={dim ? 0.25 : 0.9}>
+                            <line
+                              x1={g.x1}
+                              y1={g.y1}
+                              x2={g.x2}
+                              y2={g.y2}
+                              stroke={style.color}
+                              strokeWidth={edgeWidth(e)}
+                              strokeDasharray={style.dash || undefined}
+                              markerEnd={arrow}
+                            />
+                            {showLabels && e.type && e.kind !== 'hierarchy' && (
+                              <text className="net-edge-label" x={g.midX} y={g.midY - 5} textAnchor="middle">
+                                {RELATION_TEXT[e.type] || e.type}
+                              </text>
+                            )}
+                          </g>
                         )
                       })}
 
@@ -399,16 +483,19 @@ export default function Networks () {
                               stroke={isSelected ? '#15294b' : '#fff'}
                               strokeWidth={isSelected ? 2.4 : n.kind === 'quote' ? 0.8 : 1.6}
                             />
-                            {showLabels && (n.kind !== 'quote' || isSelected || isNeighbour) && (
-                              <text
-                                x={n.kind === 'code' ? n.x : n.x + r + 9}
-                                y={n.kind === 'code' ? n.y - r - 8 : n.y + 4}
-                                textAnchor={n.kind === 'code' ? 'middle' : 'start'}
-                                className={'net-label net-label--' + n.kind}
-                              >
-                                {n.label.length > 42 ? n.label.slice(0, 41) + '…' : n.label}
-                              </text>
-                            )}
+                            {showLabels && (n.kind !== 'quote' || isSelected || isNeighbour) && (() => {
+                              const pos = nodeLabelLayout(n, W)
+                              return (
+                                <text
+                                  x={pos.x}
+                                  y={pos.y}
+                                  textAnchor={pos.anchor}
+                                  className={'net-label net-label--' + n.kind}
+                                >
+                                  {n.label.length > 42 ? n.label.slice(0, 41) + '…' : n.label}
+                                </text>
+                              )
+                            })()}
                           </g>
                         )
                       })}
@@ -470,7 +557,11 @@ export default function Networks () {
                               <button onClick={() => setSelected(n.id)}>
                                 <i className="net-dot" style={{ background: n.color }} />
                                 <span title={n.label}>{n.label}</span>
-                                <small>{KIND_LABEL[n.kind]}</small>
+                                <small>
+                                  {view === 'cooccurrence'
+                                    ? `${edgeWeightBetween.get(selectedNode.id + '|' + n.id) || 0}x`
+                                    : KIND_LABEL[n.kind]}
+                                </small>
                               </button>
                             </li>
                           ))}
@@ -505,6 +596,39 @@ export default function Networks () {
                             </li>
                           ))}
                         </ul>
+                      </>
+                    )}
+
+                    {selectedNode.kind === 'code' && selectedQuotes.length > 0 && (
+                      <>
+                        <h3>
+                          Trechos codificados
+                          <span className="net-side-count">{selectedNode.weight}</span>
+                        </h3>
+                        <ul className="net-quotes">
+                          {selectedQuotes.map((q) => (
+                            <li key={q.id}>
+                              <button
+                                title={q.text}
+                                onClick={() => navigate(
+                                  '/documents/' + q.transcriptId +
+                                  (q.page ? '?page=' + q.page : '?excerpt=' + q.id)
+                                )}
+                              >
+                                <span className="net-quote-doc">
+                                  {data.transcripts.find((t) => t.id === q.transcriptId)?.name || 'Documento'}
+                                  {q.page ? ` · p. ${q.page}` : ''}
+                                </span>
+                                <span className="net-quote-text">{q.text}</span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                        {selectedNode.weight > selectedQuotes.length && (
+                          <button className="btn--link net-quotes-more" onClick={openSelected}>
+                            Ver todos os {selectedNode.weight} trechos →
+                          </button>
+                        )}
                       </>
                     )}
                   </div>

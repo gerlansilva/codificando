@@ -2567,7 +2567,7 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
 .relation-target:hover { text-decoration: underline; }
 .relation-remove { flex: none; margin-left: 2px; border: 0; background: none; color: #b3bcc8; font-size: 15px; line-height: 1; padding: 0 2px; cursor: pointer; }
 .relation-remove:hover { color: var(--error-text); }
-.code-relations-network { display: block; font-size: 12px; margin-top: 4px; }
+.code-relations-network { display: block; font-size: 12px; margin-top: 10px; }
 .code-relations { margin-bottom: 14px; }
 
 /* modal de relação */
@@ -2627,3 +2627,73 @@ h1, h2, h3, .topbar h1, .pane-page h2 { font-family: var(--font-sans); color: va
 .net-link-kind { color: var(--text-muted); flex: none; font-size: 11.5px; }
 .net-link-target { border: 0; background: none; padding: 0; font: inherit; font-size: 12.5px; color: var(--blue-link); cursor: pointer; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .net-link-target:hover { text-decoration: underline; }
+
+/* hierarquia visível no detalhe do código */
+.code-hierarchy { margin: 8px 0 2px; display: flex; flex-direction: column; gap: 3px; }
+.code-hierarchy p { margin: 0; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-size: 12.5px; }
+.code-hierarchy-label { color: var(--text-muted); flex: none; font-size: 11.5px; }
+.code-hierarchy-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--blue-link);
+  cursor: pointer;
+  text-align: left;
+}
+.code-hierarchy-link:hover { text-decoration: underline; }
+
+/* painel da rede: trechos codificados do código selecionado */
+.net-quotes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.net-quotes li { border-left: 2px solid #e6edf6; }
+.net-quotes button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  border-radius: 0 7px 7px 0;
+  padding: 5px 8px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.net-quotes button:hover { background: #f6f9fd; }
+.net-quote-doc { font-size: 10.5px; color: #8a97a8; text-transform: uppercase; letter-spacing: 0.04em; }
+.net-quote-text {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-body);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.net-quotes-more { font-size: 12px; margin-top: 6px; }
+.net-view select { width: 126px; }
+.net-toggle input:disabled { opacity: 0.4; }
+.net-toggle:has(input:disabled) { opacity: 0.55; cursor: default; }
+
+.net-edge-label {
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  fill: #6b7280;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+  pointer-events: none;
+}
+
+.net-mode-note {
+  font-size: 12px;
+  color: #6b7280;
+  background: #f6f8fb;
+  border: 1px solid #e9eef5;
+  border-radius: 999px;
+  padding: 4px 11px;
+  white-space: nowrap;
+}
+
+.net-label { paint-order: stroke; stroke: #fff; stroke-width: 2.6px; stroke-linejoin: round; }

@@ -20,6 +20,20 @@ export function relationLabel (type, items) {
   return (items || []).find((r) => r.value === type)?.label || type || 'relacionado a'
 }
 
+/** Rótulo visto do outro lado do vínculo: "A explica B" vira "B é explicado por A". */
+const INVERSE = {
+  parte: 'contém',
+  explica: 'explicado por',
+  precede: 'precedido por',
+  exemplifica: 'exemplificado por',
+  retoma: 'retomado por'
+}
+
+export function relationLabelFor (type, items, outgoing = true) {
+  if (outgoing) return relationLabel(type, items)
+  return INVERSE[type] || relationLabel(type, items)
+}
+
 /**
  * Escolhe um item e um tipo de relação.
  * items: [{ id, name, color?, meta? }]

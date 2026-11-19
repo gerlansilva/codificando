@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildNetwork,
   edgeStyle,
+  edgeWidth,
   layoutNetwork,
   layoutRadial,
   networkSvg,
@@ -73,6 +74,41 @@ describe('buildNetwork', () => {
     expect(net.nodes).toEqual([])
     expect(net.edges).toEqual([])
     expect(net.stats).toEqual({ codes: 0, quotes: 0, docs: 0, links: 0 })
+  })
+})
+
+describe('buildNetwork — coocorrência', () => {
+  it('gera só códigos e arestas ponderadas pelos trechos compartilhados', () => {
+    const net = buildNetwork(data, { mode: 'cooccurrence' })
+    expect(net.nodes.every((n) => n.kind === 'code')).toBe(true)
+    expect(net.nodes).toHaveLength(2)
+    expect(net.edges.every((e) => e.kind === 'cooccurrence')).toBe(true)
+    const pair = net.edges.find((e) => e.id === 'co:c1:c2')
+    expect(pair.weight).toBe(1)
+    expect(net.stats).toMatchObject({ codes: 2, quotes: 2, docs: 0, links: 1 })
+  })
+
+  it('soma um por trecho em que o par aparece junto', () => {
+    const net = buildNetwork({
+      ...data,
+      excerpts: [
+        { id: 'a', quoteId: 'q1', codeId: 'c1', transcriptId: 't1' },
+        { id: 'b', quoteId: 'q1', codeId: 'c2', transcriptId: 't1' },
+        { id: 'c', quoteId: 'q2', codeId: 'c1', transcriptId: 't1' },
+        { id: 'd', quoteId: 'q2', codeId: 'c2', transcriptId: 't1' },
+        { id: 'e', quoteId: 'q2', codeId: 'c3', transcriptId: 't1' }
+      ]
+    }, { mode: 'cooccurrence' })
+    const pair = net.edges.find((e) => e.id === 'co:c1:c2')
+    expect(pair.weight).toBe(2)
+    expect(net.edges.filter((e) => e.a === e.b)).toHaveLength(0)
+    expect(net.edges.find((e) => e.id === 'co:c2:c3').weight).toBe(1)
+  })
+
+  it('oculta códigos sem coocorrência', () => {
+    const net = buildNetwork(data, { mode: 'cooccurrence' })
+    expect(net.nodes.some((n) => n.refId === 'c3')).toBe(false)
+    expect(net.edges.some((e) => e.a === 'c:c3' || e.b === 'c:c3')).toBe(false)
   })
 })
 
@@ -155,5 +191,13 @@ describe('estilos', () => {
     expect(edgeStyle({ kind: 'hierarchy' }).dash).toBeTruthy()
     expect(edgeStyle({ kind: 'quoteLink' }).color).not.toBe(edgeStyle({ kind: 'codes' }).color)
     expect(edgeStyle({ kind: 'desconhecido' })).toEqual(edgeStyle({ kind: 'codes' }))
+  })
+
+  it('engrossa a aresta conforme a coocorrência', () => {
+    expect(edgeWidth({ kind: 'cooccurrence', weight: 1 })).toBeLessThan(
+      edgeWidth({ kind: 'cooccurrence', weight: 8 })
+    )
+    expect(edgeWidth({ kind: 'cooccurrence', weight: 100 })).toBeLessThanOrEqual(6)
+    expect(edgeWidth({ kind: 'codes' })).toBe(1)
   })
 })

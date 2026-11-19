@@ -19,10 +19,11 @@ const clip = (text, max) => {
 /**
  * Monta nós e arestas a partir dos dados do projeto.
  * @param {object} data projeto (transcripts, codes, excerpts, quoteLinks, codeLinks)
- * @param {object} options { showCodes, showQuotes, showDocs, maxQuotes, minDegree }
+ * @param {object} options { mode, showCodes, showQuotes, showDocs, maxQuotes, minDegree }
  */
 export function buildNetwork (data, options = {}) {
   const {
+    mode = 'coding',
     showCodes = true,
     showQuotes = true,
     showDocs = false,
@@ -56,6 +57,66 @@ export function buildNetwork (data, options = {}) {
   const addEdge = (edge) => {
     if (edge.a === edge.b) return
     edges.push(edge)
+  }
+
+  // Visão de coocorrência (como a Code Co-occurrence Table do atlas.ti):
+  // só códigos; a espessura da aresta é o número de trechos em que os dois
+  // códigos aparecem juntos.
+  if (mode === 'cooccurrence') {
+    for (const c of codes) {
+      addNode({
+        id: 'c:' + c.id,
+        kind: 'code',
+        refId: c.id,
+        label: c.name,
+        color: c.color || '#4A90E2',
+        weight: codeCount.get(c.id) || 0,
+        parentId: c.parentId || null
+      })
+    }
+
+    const byQuote = new Map()
+    for (const e of excerpts) {
+      if (!codeById.has(e.codeId)) continue
+      const key = quoteKey(e)
+      if (!byQuote.has(key)) byQuote.set(key, new Set())
+      byQuote.get(key).add(e.codeId)
+    }
+
+    const pairs = new Map()
+    for (const set of byQuote.values()) {
+      const ids = [...set]
+      for (let i = 0; i < ids.length; i++) {
+        for (let j = i + 1; j < ids.length; j++) {
+          const [a, b] = ids[i] < ids[j] ? [ids[i], ids[j]] : [ids[j], ids[i]]
+          const key = a + '\u0000' + b
+          pairs.set(key, (pairs.get(key) || 0) + 1)
+        }
+      }
+    }
+    for (const [key, weight] of pairs) {
+      const [a, b] = key.split('\u0000')
+      addEdge({ id: 'co:' + a + ':' + b, a: 'c:' + a, b: 'c:' + b, kind: 'cooccurrence', weight })
+    }
+
+    // Sem coocorrência não há o que mostrar: códigos isolados só poluem a figura.
+    const degree = new Map()
+    for (const e of edges) {
+      degree.set(e.a, (degree.get(e.a) || 0) + 1)
+      degree.set(e.b, (degree.get(e.b) || 0) + 1)
+    }
+    const connected = nodes.filter((n) => (degree.get(n.id) || 0) > 0)
+
+    return {
+      nodes: connected,
+      edges,
+      stats: {
+        codes: connected.length,
+        quotes: byQuote.size,
+        docs: 0,
+        links: edges.length
+      }
+    }
   }
 
   if (showCodes) {
@@ -180,11 +241,95 @@ const EDGE_STYLE = {
   hierarchy: { color: '#c7cdd6', width: 1.4, dash: '5 4' },
   codeLink: { color: '#7d95b4', width: 1.6, dash: '2 3' },
   quoteLink: { color: '#c9a227', width: 1.5, dash: '6 3' },
-  inDoc: { color: '#dde3ea', width: 1 }
+  inDoc: { color: '#dde3ea', width: 1 },
+  cooccurrence: { color: '#8fa6c0', width: 1.2 }
 }
 
 export function edgeStyle (edge) {
   return EDGE_STYLE[edge.kind] || EDGE_STYLE.codes
+}
+
+/** Espessura da linha: coocorrência cresce com o número de trechos compartilhados. */
+export function edgeWidth (edge) {
+  if (edge.kind === 'cooccurrence') {
+    return 1 + Math.min(5, Math.log2(1 + Math.max(1, edge.weight || 1)) * 1.7)
+  }
+  return edgeStyle(edge).width
+}
+
+/** Texto curto de um vínculo nomeado, para rótulos na figura. */
+export const RELATION_TEXT = {
+  associado: 'associado a',
+  parte: 'é parte de',
+  contém: 'contém',
+  contradiz: 'contradiz',
+  explica: 'explica',
+  precede: 'precede',
+  exemplifica: 'exemplifica',
+  retoma: 'retoma'
+}
+
+/** Arestas que têm direção e, por isso, recebem seta. */
+export function isDirected (edge) {
+  return edge.kind === 'hierarchy' || edge.kind === 'codeLink' || edge.kind === 'quoteLink'
+}
+
+/**
+ * Encurta a linha até a borda do nó de destino, para a seta não ficar
+ * escondida embaixo do círculo.
+ */
+export function edgeGeometry (a, b, edge) {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const d = Math.hypot(dx, dy) || 1
+  const trim = isDirected(edge) ? nodeRadius(b) + 3 : 0
+  return {
+    x1: a.x,
+    y1: a.y,
+    x2: b.x - (dx / d) * trim,
+    y2: b.y - (dy / d) * trim,
+    midX: (a.x + b.x) / 2,
+    midY: (a.y + b.y) / 2
+  }
+}
+
+/**
+ * Posição e alinhamento do rótulo, mantendo o texto dentro da figura.
+ * Códigos ficam centralizados acima do nó; trechos e documentos à direita.
+ */
+export function nodeLabelLayout (n, width = 1000) {
+  const size = n.kind === 'doc' ? 11 : n.kind === 'code' ? 12 : 10
+  const weight = n.kind === 'code' ? 600 : 400
+  const r = nodeRadius(n)
+  const text = String(n.label || '')
+  const w = text.length * size * 0.56
+
+  if (n.kind === 'quote') {
+    let x = n.x + r + 6
+    let anchor = 'start'
+    if (x + w > width - 4) {
+      x = n.x - r - 6
+      anchor = 'end'
+    }
+    return { x, y: n.y + 4, anchor, size, weight }
+  }
+
+  let x = n.x
+  let anchor = 'middle'
+  if (n.x - w / 2 < 4) {
+    x = 4
+    anchor = 'start'
+  } else if (n.x + w / 2 > width - 4) {
+    x = width - 4
+    anchor = 'end'
+  }
+  return { x, y: n.kind === 'code' ? n.y - r - 9 : n.y + 4, anchor, size, weight }
+}
+
+const ARROW_ID = {
+  hierarchy: 'arrow-hierarchy',
+  codeLink: 'arrow-code',
+  quoteLink: 'arrow-quote'
 }
 
 /** Posições iniciais em espiral (determinísticas). */
@@ -209,7 +354,7 @@ function seedPositions (nodes, width, height) {
  * @param {object} opts { width, height, iterations, padding }
  */
 export function layoutNetwork (nodes, edges, opts = {}) {
-  const { width = 1000, height = 700, iterations = 260, padding = 46 } = opts
+  const { width = 1000, height = 700, iterations = 260, padding = 74 } = opts
   if (!nodes.length) return nodes
   seedPositions(nodes, width, height)
 
@@ -227,7 +372,8 @@ export function layoutNetwork (nodes, edges, opts = {}) {
   const n = nodes.length
   const cx = width / 2
   const cy = height / 2
-  const repel = n > 120 ? 2600 : 3400
+  const repel = n > 120 ? 2400 : n > 40 ? 2900 : n > 16 ? 2900 : 1500
+  const gravity = n <= 10 ? 0.011 : 0.005
 
   for (let it = 0; it < iterations; it++) {
     const cool = 1 - it / iterations
@@ -263,8 +409,8 @@ export function layoutNetwork (nodes, edges, opts = {}) {
     }
 
     for (const node of nodes) {
-      node.vx += (cx - node.x) * 0.0025 * cool
-      node.vy += (cy - node.y) * 0.0025 * cool
+      node.vx += (cx - node.x) * gravity * cool
+      node.vy += (cy - node.y) * gravity * cool
       const damp = 0.72
       node.vx *= damp
       node.vy *= damp
@@ -296,7 +442,7 @@ export function layoutNetwork (nodes, edges, opts = {}) {
 
 /** Layout radial: códigos no centro, trechos em anéis. */
 export function layoutRadial (nodes, edges, opts = {}) {
-  const { width = 1000, height = 700, padding = 46 } = opts
+  const { width = 1000, height = 700, padding = 74 } = opts
   if (!nodes.length) return nodes
   const cx = width / 2
   const cy = height / 2
@@ -381,8 +527,21 @@ export function networkSvg (nodes, edges, opts = {}) {
     if (!a || !b) return ''
     const style = edgeStyle(e)
     const dash = style.dash ? ` stroke-dasharray="${style.dash}"` : ''
-    return `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${style.color}" stroke-width="${style.width}"${dash} />`
+    const g = edgeGeometry(a, b, e)
+    const marker = isDirected(e) ? ` marker-end="url(#${ARROW_ID[e.kind]})"` : ''
+    return `<line x1="${g.x1.toFixed(1)}" y1="${g.y1.toFixed(1)}" x2="${g.x2.toFixed(1)}" y2="${g.y2.toFixed(1)}" stroke="${style.color}" stroke-width="${edgeWidth(e)}"${dash}${marker} />`
   }).join('')
+
+  const edgeLabels = showLabels
+    ? edges.map((e) => {
+        if (!e.type || e.kind === 'hierarchy') return ''
+        const a = byId.get(e.a)
+        const b = byId.get(e.b)
+        if (!a || !b) return ''
+        const g = edgeGeometry(a, b, e)
+        return `<text x="${g.midX.toFixed(1)}" y="${(g.midY - 5).toFixed(1)}" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#6b7280" stroke="#ffffff" stroke-width="3" paint-order="stroke">${escapeXml(RELATION_TEXT[e.type] || e.type)}</text>`
+      }).join('')
+    : ''
 
   const nodeShapes = nodes.map((n) => {
     const r = nodeRadius(n)
@@ -394,14 +553,9 @@ export function networkSvg (nodes, edges, opts = {}) {
   const labels = showLabels
     ? nodes.map((n) => {
         if (n.kind === 'quote' && !n.selected) return ''
-        const r = nodeRadius(n)
-        const size = n.kind === 'doc' ? 11 : n.kind === 'code' ? 12 : 10
-        const weight = n.kind === 'code' ? 600 : 400
+        const pos = nodeLabelLayout(n, width)
         const color = n.kind === 'quote' ? '#4b5563' : '#1f2937'
-        const anchor = n.kind === 'code' ? 'middle' : 'start'
-        const dy = n.kind === 'code' ? -(r + 9) : 4
-        const dx = n.kind === 'code' ? 0 : r + 6
-        return `<text x="${(n.x + dx).toFixed(1)}" y="${(n.y + dy).toFixed(1)}" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="${size}" font-weight="${weight}" fill="${color}" text-anchor="${anchor}">${escapeXml(clip(n.label, 42))}</text>`
+        return `<text x="${pos.x.toFixed(1)}" y="${pos.y.toFixed(1)}" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="${pos.size}" font-weight="${pos.weight}" fill="${color}" text-anchor="${pos.anchor}">${escapeXml(clip(n.label, 42))}</text>`
       }).join('')
     : ''
 
@@ -413,9 +567,20 @@ export function networkSvg (nodes, edges, opts = {}) {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(width * scale)}" height="${Math.round(height * scale)}" viewBox="0 0 ${width} ${height}">
 <rect width="${width}" height="${height}" fill="${background}" />
+<defs>
+  <marker id="arrow-code" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+    <path d="M0,0 L10,5 L0,10 z" fill="#7d95b4" />
+  </marker>
+  <marker id="arrow-quote" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+    <path d="M0,0 L10,5 L0,10 z" fill="#c9a227" />
+  </marker>
+  <marker id="arrow-hierarchy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+    <path d="M0,0 L10,5 L0,10 z" fill="#b8c0cb" />
+  </marker>
+</defs>
 ${title ? `<text x="56" y="64" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="28" font-weight="700" fill="#15294b">${escapeXml(title)}</text>` : ''}
 ${subtitle ? `<text x="56" y="92" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#6b7280">${escapeXml(subtitle)}</text>` : ''}
-<g transform="translate(${offsetX.toFixed(1)}, ${top}) scale(${k.toFixed(4)})">${edgeLines}${nodeShapes}${labels}</g>
+<g transform="translate(${offsetX.toFixed(1)}, ${top}) scale(${k.toFixed(4)})">${edgeLines}${edgeLabels}${nodeShapes}${labels}</g>
 <g transform="translate(56, ${height - 44})">
   <text font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#6b7280">${stats.codes} códigos · ${stats.quotes} trechos${stats.docs ? ` · ${stats.docs} documentos` : ''} · Codificando</text>
 </g>

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useData, navigate } from '../App.jsx'
 import CodeModal from '../components/CodeModal.jsx'
-import RelationModal, { CODE_RELATIONS, relationLabel } from '../components/RelationModal.jsx'
+import RelationModal, { CODE_RELATIONS, relationLabelFor } from '../components/RelationModal.jsx'
 import { flattenTree, codeStats, CODE_COLORS } from '../lib/codes.js'
 
 export default function Codebook () {
@@ -64,6 +64,9 @@ export default function Codebook () {
         })
         .filter(Boolean)
     : []
+
+  const parent = selected?.parentId ? data.codes.find((c) => c.id === selected.parentId) : null
+  const children = selected ? data.codes.filter((c) => c.parentId === selected.id) : []
 
   const selectedExcerpts = selected ? data.excerpts.filter((e) => e.codeId === selected.id) : []
 
@@ -275,7 +278,7 @@ export default function Codebook () {
                             <li key={link.id}>
                               <span className="code-dot" style={{ background: other.color }} />
                               <span className="relation-kind">
-                                {outgoing ? relationLabel(link.type, CODE_RELATIONS) : 'recebe relação'}
+                                {relationLabelFor(link.type, CODE_RELATIONS, outgoing)}
                               </span>
                               <button
                                 className="relation-target"
@@ -295,6 +298,33 @@ export default function Codebook () {
                           ))}
                         </ul>
                         )}
+                    {(parent || children.length > 0) && (
+                      <div className="code-hierarchy">
+                        {parent && (
+                          <p>
+                            <span className="code-hierarchy-label">Categoria</span>
+                            <button className="code-hierarchy-link" onClick={() => setSelectedId(parent.id)}>
+                              {parent.name}
+                            </button>
+                          </p>
+                        )}
+                        {children.length > 0 && (
+                          <p>
+                            <span className="code-hierarchy-label">Subcódigos</span>
+                            {children.map((c) => (
+                              <button
+                                key={c.id}
+                                className="code-hierarchy-link"
+                                onClick={() => setSelectedId(c.id)}
+                              >
+                                {c.name}
+                              </button>
+                            ))}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     <button className="btn--link code-relations-network" onClick={() => navigate('/networks')}>
                       Ver na rede →
                     </button>
