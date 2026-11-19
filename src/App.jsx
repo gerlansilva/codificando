@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { loadData, saveData, uid, emptyData, loadSettings, saveSettings, setProjectPath, getProjectPath, onSaveStatus, retrySave, touchRecentProject } from './data/store.js'
+import { loadData, saveData, uid, emptyData, loadSettings, saveSettings, setProjectPath, getProjectPath, onSaveStatus, retrySave, touchRecentProject, flushNow, isProjectProtected, rememberPassword, setProjectPassword, forgetProjectPassword, checkProjectPassword } from './data/store.js'
 import { deleteBinary } from './lib/files.js'
 import { moveCode as moveCodeFn, nextColor, mergeCodeList } from './lib/codes.js'
 import { bridge } from './lib/bridge.js'
@@ -17,6 +17,7 @@ import Home from './pages/Home.jsx'
 import SaveStatus from './components/SaveStatus.jsx'
 import Consultas from './pages/Consultas.jsx'
 import Print from './pages/Print.jsx'
+import PasswordModal from './components/PasswordModal.jsx'
 
 const DataContext = createContext(null)
 export const useData = () => useContext(DataContext)
@@ -63,6 +64,10 @@ export default function App () {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('investigando.sidebar') === 'collapsed')
   const [settings, setSettings] = useState(() => loadSettings())
   const [projectMenu, setProjectMenu] = useState(false)
+  const [protectedNow, setProtectedNow] = useState(false)
+  const [pwModal, setPwModal] = useState(null)
+  const [pwError, setPwError] = useState(null)
+  const [pwBusy, setPwBusy] = useState(false)
   const dataRef = useRef(null)
   const historyRef = useRef({ past: [], future: [] })
   const autoOpenedRef = useRef(false)
@@ -121,26 +126,42 @@ export default function App () {
   useEffect(() => {
     const st = loadSettings()
     if (st.projectPath) setProjectPath(st.projectPath)
-    loadData().then((d) => {
-      if (!Array.isArray(d.memos)) d.memos = []
-      if (!Array.isArray(d.queries)) d.queries = []
-      if (!Array.isArray(d.quoteLinks)) d.quoteLinks = []
-      if (!Array.isArray(d.codeLinks)) d.codeLinks = []
-      const current = getProjectPath()
-      if (current) touchRecentProject(current, d.project?.name)
-      setData(d)
-      dataRef.current = d
-      setReady(true)
-    }).catch((err) => {
-      console.error('Falha ao carregar dados:', err)
-      const d = emptyData()
-      setData(d)
-      dataRef.current = d
-      setReady(true)
-    })
+    let cancelled = false
+
+    const boot = async () => {
+      const path = getProjectPath()
+      try {
+        const d = normalizeData(await loadData(path))
+        if (cancelled) return
+        if (path) touchRecentProject(path, d.project?.name)
+        setProtectedNow(isProjectProtected(path))
+        setData(d)
+        dataRef.current = d
+        setReady(true)
+      } catch (err) {
+        if (cancelled) return
+        if (err?.code === 'PASSWORD_REQUIRED' || err?.code === 'PASSWORD_INVALID') {
+          // não inicializa um projeto vazio por cima de um arquivo cifrado
+          setPwError(err.code === 'PASSWORD_INVALID' ? 'Senha incorreta.' : null)
+          setPwModal({ mode: 'unlock', path, boot: true })
+          setReady(true)
+          return
+        }
+        console.error('Falha ao carregar dados:', err)
+        const d = emptyData()
+        setData(d)
+        dataRef.current = d
+        setReady(true)
+      }
+    }
+
+    boot()
     const onHash = () => setRoute(parseHash())
     window.addEventListener('hashchange', onHash)
-    return () => window.removeEventListener('hashchange', onHash)
+    return () => {
+      cancelled = true
+      window.removeEventListener('hashchange', onHash)
+    }
   }, [])
 
   const update = useCallback((fn, opts = {}) => {
@@ -179,22 +200,125 @@ export default function App () {
     const d = normalizeData(await loadData())
     setData(d)
     dataRef.current = d
+    setProtectedNow(isProjectProtected(getProjectPath()))
     return d
+  }, [])
+
+  /** Aplica um projeto já aberto (e lembrado) na tela. */
+  const finishOpen = useCallback((path, d) => {
+    setProjectPath(path)
+    setSettings(saveSettings({ projectPath: path }))
+    if (path) touchRecentProject(path, d.project?.name)
+    setData(d)
+    dataRef.current = d
+    setProtectedNow(isProjectProtected(path))
+    bridge.setWatchedProject(path)
+    return path
   }, [])
 
   /** Abre um projeto já conhecido (recentes) sem passar pelo diálogo. */
   const openProjectAt = useCallback(async (path) => {
     if (!path) return null
-    setProjectPath(path)
-    setSettings(saveSettings({ projectPath: path }))
-    const d = normalizeData(await loadData())
-    touchRecentProject(path, d.project?.name)
-    setData(d)
-    dataRef.current = d
-    bridge.setWatchedProject(path)
-    navigate('/home')
-    return path
+    const previous = getProjectPath()
+    try {
+      // não troca o caminho atual antes de conseguir ler: evita que um
+      // salvamento pendente do projeto aberto caia no arquivo novo
+      const d = normalizeData(await loadData(path))
+      finishOpen(path, d)
+      navigate('/home')
+      return path
+    } catch (err) {
+      if (err?.code === 'PASSWORD_REQUIRED' || err?.code === 'PASSWORD_INVALID') {
+        setPwError(err.code === 'PASSWORD_INVALID' ? 'Senha incorreta.' : null)
+        setPwModal({ mode: 'unlock', path, previousPath: previous })
+        return null
+      }
+      throw err
+    }
+  }, [finishOpen])
+
+  /** Fecha o modal de senha (cancelar / manter sem senha). */
+  const closePasswordModal = useCallback(() => {
+    const modal = pwModal
+    setPwModal(null)
+    setPwError(null)
+
+    if (modal?.mode === 'saveAs') {
+      modal.resolve?.({ protect: false })
+      return
+    }
+    if (modal?.boot) {
+      // arquivo protegido sem senha: começa sem projeto em vez de sobrescrevê-lo
+      // (o caminho fica nas configurações para o próximo início pedir a senha)
+      setProjectPath(null)
+      const d = emptyData()
+      setData(d)
+      dataRef.current = d
+      setProtectedNow(false)
+      navigate('/home')
+      return
+    }
+    if (modal && modal.previousPath !== undefined) {
+      setProjectPath(modal.previousPath)
+      setSettings(saveSettings({ projectPath: modal.previousPath || null }))
+      setProtectedNow(isProjectProtected(modal.previousPath))
+    }
+  }, [pwModal])
+
+  const askSaveProtection = useCallback(() => new Promise((resolve) => {
+    setPwError(null)
+    setPwModal({ mode: 'saveAs', resolve })
+  }), [])
+
+  const requestPasswordAction = useCallback((mode) => {
+    if (!getProjectPath()) return false
+    setPwError(null)
+    setPwModal({ mode })
+    return true
   }, [])
+
+  /** Executa a ação do modal de senha. Senhas ficam só na memória do store. */
+  const handlePasswordSubmit = useCallback(async (payload) => {
+    const modal = pwModal
+    if (!modal) return
+    setPwBusy(true)
+    setPwError(null)
+    try {
+      if (modal.mode === 'unlock') {
+        const path = modal.path
+        rememberPassword(path, payload)
+        const d = normalizeData(await loadData(path))
+        finishOpen(path, d)
+        setPwModal(null)
+        if (!modal.boot) navigate('/home')
+      } else if (modal.mode === 'create') {
+        setProjectPassword(getProjectPath(), payload.password)
+        await flushNow(dataRef.current)
+        setProtectedNow(true)
+        setPwModal(null)
+      } else if (modal.mode === 'change') {
+        if (!checkProjectPassword(getProjectPath(), payload.current)) throw new Error('Senha atual incorreta.')
+        setProjectPassword(getProjectPath(), payload.password)
+        await flushNow(dataRef.current)
+        setProtectedNow(true)
+        setPwModal(null)
+      } else if (modal.mode === 'remove') {
+        if (!checkProjectPassword(getProjectPath(), payload.current)) throw new Error('Senha atual incorreta.')
+        forgetProjectPassword(getProjectPath())
+        await flushNow(dataRef.current)
+        setProtectedNow(false)
+        setPwModal(null)
+      } else if (modal.mode === 'saveAs') {
+        modal.resolve?.({ protect: true, password: payload.password })
+        setPwModal(null)
+      }
+    } catch (err) {
+      if (err?.code === 'PASSWORD_INVALID' || err?.code === 'PASSWORD_REQUIRED') setPwError('Senha incorreta.')
+      else setPwError(String(err?.message || err))
+    } finally {
+      setPwBusy(false)
+    }
+  }, [pwModal, finishOpen])
 
   useEffect(() => {
     const onKey = (e) => {
@@ -214,6 +338,8 @@ export default function App () {
   const api = useMemo(() => ({
     data,
     settings,
+    protected: protectedNow,
+    openPasswordAction: requestPasswordAction,
     update,
     undo,
     redo,
@@ -410,6 +536,7 @@ export default function App () {
     newProject: (name, description) => {
       setProjectPath(null)
       setSettings(saveSettings({ projectPath: null }))
+      setProtectedNow(false)
       const d = emptyData()
       d.project.name = (name || '').trim() || 'Projeto sem título'
       d.project.description = (description || '').trim()
@@ -422,11 +549,15 @@ export default function App () {
       const suggestion = ((dataRef.current?.project.name || 'Projeto').replace(/[\/:*?"<>|]/g, '-')) + '.investigando'
       const path = await bridge.savePanel(suggestion)
       if (!path) return null
+      const decision = await askSaveProtection()
       setProjectPath(path)
       setSettings(saveSettings({ projectPath: path }))
+      if (decision?.protect && decision.password) setProjectPassword(path, decision.password)
+      else forgetProjectPassword(path)
+      setProtectedNow(!!decision?.protect)
       touchRecentProject(path, dataRef.current?.project?.name)
-      saveData(dataRef.current)
       bridge.setWatchedProject(path)
+      await flushNow(dataRef.current)
       return path
     },
     saveNow () {
@@ -462,10 +593,23 @@ export default function App () {
     removeExcerpt: (id) => {
       update((d) => ({ ...d, excerpts: d.excerpts.filter((e) => e.id !== id) }))
     }
-  }), [data, settings, update, openProjectAt, reloadProject])
+  }), [data, settings, protectedNow, requestPasswordAction, update, openProjectAt, reloadProject, askSaveProtection])
 
-  if (!ready || !data) {
+  if (!ready) {
     return <div style={{ padding: 40, fontFamily: 'Helvetica Neue, sans-serif' }}>Carregando…</div>
+  }
+
+  if (!data) {
+    // arquivo protegido: nada do projeto é montado antes da senha correta
+    return (
+      <PasswordModal
+        mode="unlock"
+        error={pwError}
+        busy={pwBusy}
+        onSubmit={handlePasswordSubmit}
+        onCancel={closePasswordModal}
+      />
+    )
   }
 
   const transcript = route.id ? data.transcripts.find((t) => t.id === route.id) : null
@@ -521,6 +665,25 @@ export default function App () {
                     Salvar como…
                     <small>Gravar o projeto em outro arquivo</small>
                   </button>
+                  {protectedNow
+                    ? (
+                      <>
+                        <button onClick={() => { setProjectMenu(false); api.openPasswordAction('change') }}>
+                          Trocar senha…
+                          <small>Alterar a senha do arquivo do projeto</small>
+                        </button>
+                        <button onClick={() => { setProjectMenu(false); api.openPasswordAction('remove') }}>
+                          Remover senha…
+                          <small>Voltar a gravar o projeto em JSON simples</small>
+                        </button>
+                      </>
+                      )
+                    : (
+                      <button onClick={() => { setProjectMenu(false); if (getProjectPath()) api.openPasswordAction('create'); else api.saveProjectAs() }}>
+                        Proteger com senha…
+                        <small>Gravar o projeto cifrado (AES-GCM 256)</small>
+                      </button>
+                      )}
                   <button onClick={() => { setProjectMenu(false); bridge.dataPath().then((p) => p && bridge.revealPath(p)) }}>
                     Mostrar pasta de dados
                     <small>Arquivos locais do aplicativo</small>
@@ -559,6 +722,22 @@ export default function App () {
           {route.name === 'print' && transcript && <Print transcript={transcript} />}
         </div>
       </div>
+      {pwModal && (
+        <PasswordModal
+          mode={pwModal.mode}
+          projectName={data?.project?.name || ''}
+          error={pwError}
+          busy={pwBusy}
+          onSubmit={handlePasswordSubmit}
+          onCancel={closePasswordModal}
+          onKeepOpen={() => {
+            const m = pwModal
+            setPwModal(null)
+            setPwError(null)
+            m.resolve?.({ protect: false })
+          }}
+        />
+      )}
     </DataContext.Provider>
   )
 }

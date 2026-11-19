@@ -5,7 +5,7 @@ import { getProjectPath, shortPath } from '../data/store.js'
 
 /** Configurações gerais: quem sou eu e o projeto. Só o essencial. */
 export default function Settings () {
-  const { data, settings, setProjectMeta, reloadProject } = useData()
+  const { data, settings, setProjectMeta, reloadProject, protected: isProtected, openPasswordAction } = useData()
   const [name, setName] = useState(data.project.name)
   const [description, setDescription] = useState(data.project.description || '')
   const [saved, setSaved] = useState(false)
@@ -158,6 +158,36 @@ export default function Settings () {
             </div>
           </section>
 
+          <section className="settings-card">
+            <h2>Senha do projeto</h2>
+            <p className="sub">
+              {isProtected
+                ? 'Este projeto está protegido por senha. O arquivo é gravado cifrado (PBKDF2 + AES-GCM 256) e a senha não é armazenada em disco.'
+                : 'Sem proteção: o arquivo .investigando é um JSON simples, legível por qualquer pessoa com acesso a ele.'}
+            </p>
+            {!projectPath && (
+              <p className="sub">Salve o projeto em um arquivo (“Salvar como…”) para poder protegê-lo.</p>
+            )}
+            <div className="settings-actions">
+              {isProtected
+                ? (
+                  <>
+                    <button className="btn" disabled={!projectPath} onClick={() => openPasswordAction('change')}>
+                      Trocar senha…
+                    </button>
+                    <button className="btn" disabled={!projectPath} onClick={() => openPasswordAction('remove')}>
+                      Remover senha…
+                    </button>
+                  </>
+                  )
+                : (
+                  <button className="btn" disabled={!projectPath} onClick={() => openPasswordAction('create')}>
+                    Proteger com senha…
+                  </button>
+                  )}
+            </div>
+          </section>
+
           <section className="settings-card settings-backups">
             <h2>Backups do projeto</h2>
             {!projectPath
@@ -168,6 +198,11 @@ export default function Settings () {
                     Até 20 versões automáticas, uma por minuto no máximo. Arquivo:{' '}
                     <code title={projectPath}>{shortPath(projectPath, 64)}</code>
                   </p>
+                  {isProtected && (
+                    <p className="sub">
+                      Os backups são cópias exatas do arquivo: os de um projeto protegido continuam cifrados.
+                    </p>
+                  )}
 
                   {backupError && <p className="settings-error">{backupError}</p>}
                   {backupMsg && <p className="settings-note">{backupMsg}</p>}
