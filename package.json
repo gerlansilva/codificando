@@ -1,7 +1,7 @@
 {
   "name": "investigando",
   "productName": "Codificando",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Codificando — análise qualitativa de dados. App desktop em Tauri.",
   "private": true,
   "engines": {

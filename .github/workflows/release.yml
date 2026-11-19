@@ -50,7 +50,7 @@ jobs:
             Nesta versão: as marcações do PDF ficam translúcidas, com o texto legível
             por cima, e a seleção de texto acompanha o zoom.
 
-            O manual completo está em anexo (`Codificando-manual-0.2.2.pdf`).
+            O manual completo está em anexo (`Codificando-manual-0.2.3.pdf`).
             Não há certificado de desenvolvedor: o app é gratuito e sem mensalidade.
             No macOS, abra com botão direito → Abrir; no Windows, use
             "Mais informações → Executar assim mesmo" se o SmartScreen avisar.
@@ -91,7 +91,7 @@ jobs:
             Nesta versão: as marcações do PDF ficam translúcidas, com o texto legível
             por cima, e a seleção de texto acompanha o zoom.
 
-            O manual completo está em anexo (`Codificando-manual-0.2.2.pdf`).
+            O manual completo está em anexo (`Codificando-manual-0.2.3.pdf`).
             Não há certificado de desenvolvedor: o app é gratuito e sem mensalidade.
             No macOS, abra com botão direito → Abrir; no Windows, use
             "Mais informações → Executar assim mesmo" se o SmartScreen avisar.

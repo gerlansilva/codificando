@@ -846,7 +846,7 @@ function PdfPage ({ doc, number, size, scale, excerpts, selectionRects, onHighli
               width: `${r.w * 100}%`,
               height: `${r.h * 100}%`,
               background: tintAlpha(ex.color || '#4A90E2', ex.codeId === hoverCodeId ? 0.55 : 0.38),
-              boxShadow: ex.codeId === hoverCodeId ? `0 0 0 2px ${(ex.color || '#4A90E2')}` : `inset 0 -2px 0 ${(ex.color || '#4A90E2')}`
+              boxShadow: ex.codeId === hoverCodeId ? `0 0 0 2px ${(ex.color || '#4A90E2')}` : 'none'
             }}
             onClick={(e) => { e.stopPropagation(); onHighlightClick(ex, e) }}
           />

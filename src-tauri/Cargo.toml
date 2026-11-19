@@ -1,6 +1,6 @@
 [package]
 name = "codificando"
-version = "0.2.2"
+version = "0.2.3"
 description = "Codificando — análise qualitativa de dados"
 authors = ["Gerlan Silva da Silva"]
 license = ""

@@ -184,6 +184,7 @@ try {
         opacity: cs.opacity,
         visibility: cs.visibility,
         display: cs.display,
+        boxShadow: cs.boxShadow,
         zIndex: cs.zIndex,
         overText: spans.some((s) => cx >= s.x - 4 && cx <= s.x + s.width + 4 && cy >= s.y - 4 && cy <= s.y + s.height + 4),
         center: { x: cx, y: cy },
@@ -198,6 +199,7 @@ try {
     if (!h.background || h.background === 'rgba(0, 0, 0, 0)' || h.background === 'transparent') {
       problems.push(`marcação ${i} sem cor de fundo`)
     }
+    if (h.boxShadow && h.boxShadow !== 'none') problems.push(`marcação ${i} tem contorno/sublinhado: ${h.boxShadow}`)
     if (h.opacity === '0' || h.visibility === 'hidden' || h.display === 'none') {
       problems.push(`marcação ${i} invisível (opacity/visibility/display)`)
     }

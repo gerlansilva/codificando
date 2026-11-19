@@ -965,7 +965,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
                             <span
                               key={j}
                               className={'excerpt' + (hoverCode === seg.excerpt.codeId ? ' excerpt--hover' : '')}
-                              style={{ backgroundColor: tint(code?.color || '#FFE28B', hoverCode === seg.excerpt.codeId ? 0.38 : 0.24), boxShadow: `inset 0 -2px 0 ${(code?.color || '#FFE28B')}` }}
+                              style={{ backgroundColor: tint(code?.color || '#FFE28B', hoverCode === seg.excerpt.codeId ? 0.38 : 0.24) }}
                               title={code?.name}
                               onClick={(e) => {
                                 e.stopPropagation()
