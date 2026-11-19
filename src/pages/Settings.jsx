@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { useData } from '../App.jsx'
 import { bridge } from '../lib/bridge.js'
-import { getProjectPath, shortPath } from '../data/store.js' 
+import { getProjectPath, shortPath } from '../data/store.js'
+import {
+  checkForUpdates,
+  currentVersion,
+  dismissUpdate,
+  friendlyUpdateError,
+  installUpdate,
+  relaunchApp,
+  updaterAvailable
+} from '../lib/updater.js'
 
 /** Configurações gerais: quem sou eu e o projeto. Só o essencial. */
 export default function Settings () {
@@ -18,8 +27,13 @@ export default function Settings () {
   const [backupMsg, setBackupMsg] = useState(null)
   const [backupError, setBackupError] = useState(null)
 
+  const [appVersion, setAppVersion] = useState('')
+  const [update, setUpdate] = useState({ status: 'idle' })
+  const canUpdate = updaterAvailable()
+
   useEffect(() => { setName(data.project.name); setDescription(data.project.description || '') }, [data.project.name, data.project.description])
   useEffect(() => { bridge.dataDir().then((p) => setDataFolder(p || '')) }, [])
+  useEffect(() => { currentVersion().then((v) => setAppVersion(v || '')) }, [])
 
   const refreshBackups = async () => {
     if (!projectPath) { setBackups([]); return }
@@ -103,6 +117,32 @@ export default function Settings () {
     } finally {
       setBusyId(null)
     }
+  }
+
+  const verifyUpdates = async () => {
+    if (update.status === 'available') await dismissUpdate(update.update)
+    setUpdate({ status: 'checking' })
+    const result = await checkForUpdates()
+    setUpdate(result)
+  }
+
+  const startUpdate = async () => {
+    if (update.status !== 'available' || !update.update) return
+    const version = update.version
+    setUpdate({ status: 'downloading', version, percent: null })
+    try {
+      await installUpdate(update.update, ({ percent }) => {
+        setUpdate((prev) => (prev.status === 'downloading' ? { ...prev, percent } : prev))
+      })
+      setUpdate({ status: 'installed', version })
+    } catch (err) {
+      setUpdate({ status: 'error', message: friendlyUpdateError(err, 'install') })
+    }
+  }
+
+  const cancelUpdate = async () => {
+    await dismissUpdate(update.update)
+    setUpdate({ status: 'idle' })
   }
 
   return (
@@ -248,6 +288,75 @@ export default function Settings () {
                   </div>
                 </>
               )}
+          </section>
+          <section className="settings-card settings-updates">
+            <h2>Versão e atualizações</h2>
+            <p className="sub">
+              {appVersion ? `Versão ${appVersion}.` : ''} O Codificando só consulta atualizações quando você pede.
+              Seus projetos continuam funcionando offline.
+            </p>
+
+            {update.status === 'latest' && (
+              <p className="settings-note">Você está na versão mais recente.</p>
+            )}
+            {update.status === 'error' && <p className="settings-error">{update.message}</p>}
+
+            {update.status === 'available' && (
+              <div className="settings-update-available">
+                <p>
+                  <strong>Nova versão disponível: {update.version}</strong>
+                  {update.currentVersion ? ` (você tem a ${update.currentVersion})` : ''}
+                </p>
+                {update.notes && <pre className="settings-update-notes">{update.notes}</pre>}
+                <p className="sub">
+                  Baixe e instale quando quiser. O app não baixa nada sozinho.
+                </p>
+                <div className="settings-actions">
+                  <button className="btn btn--blue" onClick={startUpdate}>
+                    Baixar e instalar
+                  </button>
+                  <button className="btn" onClick={cancelUpdate}>Agora não</button>
+                </div>
+              </div>
+            )}
+
+            {update.status === 'downloading' && (
+              <p className="settings-note">
+                {`Baixando a versão ${update.version}… `}
+                {update.percent === null || update.percent === undefined ? '' : `${update.percent}%`}
+                {' '}Não feche o app durante a instalação.
+              </p>
+            )}
+
+            {update.status === 'installed' && (
+              <>
+                <p className="settings-note">
+                  {`Atualização ${update.version} instalada. Reinicie o Codificando para usar a nova versão.`}
+                </p>
+                <div className="settings-actions">
+                  <button
+                    className="btn btn--blue"
+                    onClick={() => relaunchApp().catch(() => flash('Feche e abra o Codificando manualmente.'))}
+                  >
+                    Reiniciar agora
+                  </button>
+                </div>
+              </>
+            )}
+
+            {!canUpdate && (
+              <p className="sub">Disponível apenas no app instalado, não no navegador de desenvolvimento.</p>
+            )}
+
+            <div className="settings-actions">
+              <button
+                className="btn"
+                disabled={!canUpdate || update.status === 'checking' || update.status === 'downloading'}
+                onClick={verifyUpdates}
+              >
+                {update.status === 'checking' ? 'Verificando…' : 'Verificar atualizações'}
+              </button>
+            </div>
           </section>
         </div>
       </div>

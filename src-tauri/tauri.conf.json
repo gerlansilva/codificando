@@ -38,6 +38,15 @@
     ],
     "macOS": {
       "minimumSystemVersion": "11.0"
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "COLE_AQUI_A_CHAVE_PUBLICA_DO_TAURI_SIGNER",
+      "endpoints": [
+        "https://github.com/SEU_USUARIO/codificando/releases/latest/download/latest.json"
+      ]
     }
   }
 }

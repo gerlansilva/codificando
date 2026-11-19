@@ -91,6 +91,9 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # O CI não tem a chave do updater: gera só os instaladores.
+          args: '--config src-tauri/tauri.ci.conf.json'
 
       - uses: actions/upload-artifact@v4
         with:
@@ -117,6 +120,9 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # O CI não tem a chave do updater: gera só os instaladores.
+          args: '--config src-tauri/tauri.ci.conf.json'
 
       - uses: actions/upload-artifact@v4
         with:

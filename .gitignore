@@ -5,3 +5,10 @@ coverage/
 .DS_Store
 src-tauri/target/
 src-tauri/gen/
+
+# Segredos de assinatura/distribuição: nunca commitar
+*.p12
+*.cer
+*.mobileprovision
+*.key
+*.pem
