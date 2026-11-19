@@ -12,9 +12,9 @@ e o mesmo formato de dados do aplicativo anterior.
 Os instaladores e o manual estão em
 [github.com/gerlansilva/codificando/releases](https://github.com/gerlansilva/codificando/releases):
 
-- macOS (Apple Silicon): `Codificando_0.2.0_aarch64.dmg`
-- Windows (x64): `Codificando_0.2.0_x64-setup.exe` (NSIS) ou `.msi`
-- Manual: `Codificando-manual-0.2.0.pdf`
+- macOS (Apple Silicon): `Codificando_0.2.1_aarch64.dmg`
+- Windows (x64): `Codificando_0.2.1_x64-setup.exe` (NSIS) ou `.msi`
+- Manual: `Codificando-manual-0.2.1.pdf`
 
 Não há certificado de desenvolvedor (assinatura de código) — o app é gratuito e não tem
 mensalidade nem conta em loja. No macOS, abra com botão direito → Abrir; no Windows, se o
@@ -93,12 +93,12 @@ npx tauri build
 Artefatos no macOS:
 
 - `src-tauri/target/release/bundle/macos/Codificando.app`
-- `src-tauri/target/release/bundle/dmg/Codificando_0.2.0_aarch64.dmg`
+- `src-tauri/target/release/bundle/dmg/Codificando_0.2.1_aarch64.dmg`
 
 No Windows, o mesmo comando gera:
 
-- `src-tauri\target\release\bundle\nsis\Codificando_0.2.0_x64-setup.exe`
-- `src-tauri\target\release\bundle\msi\Codificando_0.2.0_x64_en-US.msi`
+- `src-tauri\target\release\bundle\nsis\Codificando_0.2.1_x64-setup.exe`
+- `src-tauri\target\release\bundle\msi\Codificando_0.2.1_x64_en-US.msi`
 
 Assinatura, notarização, atualizações automáticas e instalação local estão em
 [docs/DISTRIBUICAO.md](docs/DISTRIBUICAO.md). Como o app está configurado para
@@ -133,8 +133,8 @@ faz isso no GitHub Actions:
    `tauri-apps/tauri-action` para gerar os instaladores.
 3. Ao final, baixe o artefato `codificando-windows-installer` na página da
    execução. Ele contém:
-   - `Codificando_0.2.0_x64-setup.exe` (NSIS)
-   - `Codificando_0.2.0_x64_en-US.msi` (MSI)
+   - `Codificando_0.2.1_x64-setup.exe` (NSIS)
+   - `Codificando_0.2.1_x64_en-US.msi` (MSI)
 
 O mesmo workflow também valida os testes (`test`), o `cargo check` (`rust`) e
 gera o `.dmg` no job `build-macos`, disponível no artefato
