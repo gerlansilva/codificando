@@ -11,7 +11,7 @@ import { ensurePdfJs } from '../lib/importers.js'
  * permanece visível e a codificação é ancorada em retângulos da página.
  */
 
-export default function PdfViewer ({ fileKey, excerpts, scale, onSelect, onHighlightClick, focusPage = null, hoverCodeId = null, flashQuoteId = null, selectionActive = false, findTerm = null, findIndex = 0, commentedIds = null }) {
+export default function PdfViewer ({ fileKey, excerpts, scale, onSelect, onHighlightClick, focusPage = null, hoverCodeId = null, flashQuoteId = null, selectionActive = false, findTerm = null, findIndex = 0, commentedIds = null, areaMode = false }) {
   const [doc, setDoc] = useState(null)
   const [error, setError] = useState(null)
   const [size, setSize] = useState({ width: 595, height: 842 })
@@ -19,6 +19,49 @@ export default function PdfViewer ({ fileKey, excerpts, scale, onSelect, onHighl
   const containerRef = useRef(null)
   const dragRef = useRef(null)
   const boundsRef = useRef(null)
+  const areaRef = useRef(null) // retângulo em desenho (modo Área)
+  const areaSelRef = useRef(false) // a seleção atual é uma área (não há seleção nativa)
+
+  // Modo Área: desenhar um retângulo sobre figura, gráfico ou quadro
+  useEffect(() => {
+    const point = (d, e) => {
+      const r = d.pageEl.getBoundingClientRect()
+      return {
+        x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+        y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))
+      }
+    }
+    const rectOf = (d, e) => {
+      const p = point(d, e)
+      return { x: Math.min(d.x0, p.x), y: Math.min(d.y0, p.y), w: Math.abs(p.x - d.x0), h: Math.abs(p.y - d.y0) }
+    }
+    const onMove = (e) => {
+      const d = areaRef.current
+      if (!d) return
+      setSelection([{ page: d.page, rects: [rectOf(d, e)], area: true }])
+    }
+    const onUp = (e) => {
+      const d = areaRef.current
+      if (!d) return
+      areaRef.current = null
+      document.body.classList.remove('is-drawing-area')
+      const r = rectOf(d, e)
+      if (r.w < 0.015 || r.h < 0.01) { setSelection([]); return }
+      const text = textInArea(d.pageEl, r)
+      const thumb = cropThumb(d.pageEl, r)
+      const label = text || `[Figura/quadro, p. ${d.page}]`
+      const pages = [{ page: d.page, rects: [r], text: label, area: true, thumb }]
+      areaSelRef.current = true
+      setSelection(pages)
+      onSelect({ pages, text: label, area: true, thumb })
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    return () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+  }, [onSelect])
 
   useEffect(() => {
     let cancelled = false
@@ -43,7 +86,7 @@ export default function PdfViewer ({ fileKey, excerpts, scale, onSelect, onHighl
 
   // se o estado da seleção foi limpo no editor, apaga o overlay
   useEffect(() => {
-    if (!selectionActive) setSelection([])
+    if (!selectionActive) { areaSelRef.current = false; setSelection([]) }
   }, [selectionActive])
 
   useEffect(() => {
@@ -55,9 +98,10 @@ export default function PdfViewer ({ fileKey, excerpts, scale, onSelect, onHighl
   const handleMouseUp = useCallback(() => {
     const sel = window.getSelection()
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
-      setSelection([])
+      if (!areaSelRef.current) setSelection([])
       return
     }
+    areaSelRef.current = false
     const range = sel.getRangeAt(0)
     // só vale seleção dentro do PDF (Cmd+A na página não pode pegar a interface)
     if (!containerRef.current?.contains(range.commonAncestorContainer)) { setSelection([]); return }
@@ -95,6 +139,21 @@ export default function PdfViewer ({ fileKey, excerpts, scale, onSelect, onHighl
   // Arrasto próprio: o WebKit não estende a seleção nativa nesta camada.
   const onMouseDown = useCallback((e) => {
     if (e.button !== 0) return
+    if (areaMode) {
+      const pageEl = e.target.closest?.('.pdf-page[data-page]')
+      if (!pageEl) return
+      e.preventDefault()
+      window.getSelection()?.removeAllRanges()
+      const r = pageEl.getBoundingClientRect()
+      areaRef.current = {
+        pageEl,
+        page: Number(pageEl.dataset.page),
+        x0: (e.clientX - r.left) / r.width,
+        y0: (e.clientY - r.top) / r.height
+      }
+      document.body.classList.add('is-drawing-area')
+      return
+    }
     if (e.detail > 1) {
       const hit = hitExcerptAt(e.clientX, e.clientY)
       if (hit) {
@@ -112,7 +171,7 @@ export default function PdfViewer ({ fileKey, excerpts, scale, onSelect, onHighl
     sel.removeAllRanges()
     sel.addRange(caret)
     dragRef.current = { x: e.clientX, y: e.clientY, anchor: caret, moved: false, startLine: caretLine(caret) }
-  }, [hitExcerptAt, onHighlightClick])
+  }, [hitExcerptAt, onHighlightClick, areaMode])
 
   // clique (sem arrasto) sobre um trecho codificado abre o inspetor
   const handleClick = useCallback((e) => {
@@ -227,7 +286,7 @@ export default function PdfViewer ({ fileKey, excerpts, scale, onSelect, onHighl
     let timer = null
     const onSelectionChange = () => {
       const sel = window.getSelection()
-      if (!sel || sel.isCollapsed || !sel.rangeCount) { setSelection([]); return }
+      if (!sel || sel.isCollapsed || !sel.rangeCount) { if (!areaSelRef.current) setSelection([]); return }
       if (sel.anchorNode?.parentElement?.closest?.('.codes-pane')) return
       const range = sel.getRangeAt(0)
       if (!containerRef.current?.contains(range.commonAncestorContainer)) { setSelection([]); return }
@@ -247,7 +306,7 @@ export default function PdfViewer ({ fileKey, excerpts, scale, onSelect, onHighl
 
   return (
     <div
-      className="pdf-pages"
+      className={'pdf-pages' + (areaMode ? ' pdf-pages--area' : '')}
       ref={containerRef}
       onMouseDown={onMouseDown}
       onDoubleClick={handleDoubleClick}
@@ -271,6 +330,7 @@ export default function PdfViewer ({ fileKey, excerpts, scale, onSelect, onHighl
             findTerm={Number(focusPage) === number ? findTerm : null}
             findIndex={findIndex}
             selectionRects={(selection.find((s) => s.page === number) || {}).rects || []}
+            selectionArea={!!(selection.find((s) => s.page === number) || {}).area}
             onHighlightClick={onHighlightClick}
             commentedIds={commentedIds}
           />
@@ -705,7 +765,7 @@ function pageFromPoint (x, y) {
   return null
 }
 
-function PdfPage ({ doc, number, size, scale, excerpts, selectionRects, onHighlightClick, hoverCodeId, flashQuoteId, findTerm, findIndex, commentedIds }) {
+function PdfPage ({ doc, number, size, scale, excerpts, selectionRects, selectionArea = false, onHighlightClick, hoverCodeId, flashQuoteId, findTerm, findIndex, commentedIds }) {
   const wrapRef = useRef(null)
   const canvasRef = useRef(null)
   const textRef = useRef(null)
@@ -836,7 +896,7 @@ function PdfPage ({ doc, number, size, scale, excerpts, selectionRects, onHighli
       {selectionRects.map((r, i) => (
         <span
           key={'sel' + i}
-          className="pdf-selection"
+          className={'pdf-selection' + (selectionArea ? ' pdf-selection--area' : '')}
           style={{
             left: `${r.x * 100}%`,
             top: `${r.y * 100}%`,
@@ -849,15 +909,24 @@ function PdfPage ({ doc, number, size, scale, excerpts, selectionRects, onHighli
         (ex.rects || []).map((r, i) => (
           <span
             key={ex.id + '-' + i}
-            className={'pdf-highlight' + (((ex.quoteId || ex.id) === flashQuoteId) ? ' pdf-highlight--flash' : '')}
-            style={{
-              left: `${r.x * 100}%`,
-              top: `${r.y * 100}%`,
-              width: `${r.w * 100}%`,
-              height: `${r.h * 100}%`,
-              background: tintAlpha(ex.color || '#4A90E2', ex.codeId === hoverCodeId ? 0.55 : 0.38),
-              boxShadow: ex.codeId === hoverCodeId ? `0 0 0 2px ${(ex.color || '#4A90E2')}` : 'none'
-            }}
+            className={'pdf-highlight' + (ex.area ? ' pdf-highlight--area' : '') + (((ex.quoteId || ex.id) === flashQuoteId) ? ' pdf-highlight--flash' : '')}
+            style={ex.area
+              ? {
+                  left: `${r.x * 100}%`,
+                  top: `${r.y * 100}%`,
+                  width: `${r.w * 100}%`,
+                  height: `${r.h * 100}%`,
+                  background: tintAlpha(ex.color || '#4A90E2', ex.codeId === hoverCodeId ? 0.16 : 0.07),
+                  boxShadow: `inset 0 0 0 ${ex.codeId === hoverCodeId ? 3 : 2}px ${ex.color || '#4A90E2'}`
+                }
+              : {
+                  left: `${r.x * 100}%`,
+                  top: `${r.y * 100}%`,
+                  width: `${r.w * 100}%`,
+                  height: `${r.h * 100}%`,
+                  background: tintAlpha(ex.color || '#4A90E2', ex.codeId === hoverCodeId ? 0.55 : 0.38),
+                  boxShadow: ex.codeId === hoverCodeId ? `0 0 0 2px ${(ex.color || '#4A90E2')}` : 'none'
+                }}
             onClick={(e) => { e.stopPropagation(); onHighlightClick(ex, e) }}
           />
         ))
@@ -965,4 +1034,48 @@ function findOccurrencesInPage (container, term) {
     }
   }
   return out
+}
+
+
+/** Texto da camada de texto cujo centro cai dentro do retângulo (rótulos de gráfico, células de quadro). */
+function textInArea (pageEl, r) {
+  const pr = pageEl.getBoundingClientRect()
+  const items = []
+  for (const span of pageEl.querySelectorAll('.textLayer span')) {
+    const t = (span.textContent || '').trim()
+    if (!t) continue
+    const b = span.getBoundingClientRect()
+    const cx = (b.left + b.width / 2 - pr.left) / pr.width
+    const cy = (b.top + b.height / 2 - pr.top) / pr.height
+    if (cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h) items.push({ t, x: cx, y: cy, h: b.height / pr.height })
+  }
+  items.sort((a, b) => a.y - b.y || a.x - b.x)
+  const lines = []
+  for (const it of items) {
+    const last = lines[lines.length - 1]
+    if (last && Math.abs(last.y - it.y) < Math.max(0.004, it.h * 0.6)) last.parts.push(it)
+    else lines.push({ y: it.y, parts: [it] })
+  }
+  return lines.map((l) => l.parts.sort((a, b) => a.x - b.x).map((p) => p.t).join(' ')).join('\n').replace(/[ \t]+/g, ' ').trim()
+}
+
+/** Miniatura JPEG do recorte, a partir do canvas já renderizado da página. */
+function cropThumb (pageEl, r, max = 360) {
+  try {
+    const canvas = pageEl.querySelector('canvas')
+    if (!canvas || !canvas.width) return null
+    const sx = r.x * canvas.width
+    const sy = r.y * canvas.height
+    const sw = Math.max(1, r.w * canvas.width)
+    const sh = Math.max(1, r.h * canvas.height)
+    const k = Math.min(1, max / Math.max(sw, sh))
+    const out = document.createElement('canvas')
+    out.width = Math.round(sw * k)
+    out.height = Math.round(sh * k)
+    const ctx = out.getContext('2d')
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, out.width, out.height)
+    ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height)
+    return out.toDataURL('image/jpeg', 0.82)
+  } catch { return null }
 }

@@ -417,6 +417,7 @@ export default function App () {
         page: p.page,
         rects: p.rects,
         text: p.text,
+        ...(p.area ? { area: true, thumb: p.thumb || null } : {}),
         layer: 1,
         createdAt: now
       }))

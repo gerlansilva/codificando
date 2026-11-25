@@ -86,6 +86,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
   const repairingRef = useRef(false)
   const [flashBlock, setFlashBlock] = useState(null)
   const zoomKey = 'investigando.zoom.' + transcript.id
+  const [areaMode, setAreaMode] = useState(false)
   const [zoom, setZoom] = useState(() => Number(localStorage.getItem(zoomKey)) || null)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState({ name: '', color: CODE_COLORS[0], parentId: '', memo: '' })
@@ -540,7 +541,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
   }, [isPdf, transcript.body])
 
   const handlePdfSelect = useCallback((selection) => {
-    setPendingSel({ pages: selection.pages, text: selection.text })
+    setPendingSel({ pages: selection.pages, text: selection.text, area: !!selection.area, thumb: selection.thumb || null })
   }, [])
 
   const applyCode = (name, selection = pendingSel) => {
@@ -585,6 +586,8 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') { clearSelection(); setMenu(null); setActiveExcerpt(null); setCtxMenu(null) }
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || '') || e.target?.isContentEditable
+      if (isPdf && !typing && !e.metaKey && !e.ctrlKey && !e.altKey && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); setAreaMode((v) => !v) }
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && pendingSel) {
         const lastId = localStorage.getItem('investigando.lastCode')
         const last = data.codes.find((c) => c.id === lastId)
@@ -859,7 +862,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
     // uma citação de PDF pode ter várias páginas: copia as páginas de um único código
     const group = all.filter((g) => g.codeId === all[0].codeId)
     if (group[0].page) {
-      addPdfExcerpt(transcript.id, code.id, group.map((g) => ({ page: g.page, rects: g.rects, text: g.text })), qid)
+      addPdfExcerpt(transcript.id, code.id, group.map((g) => ({ page: g.page, rects: g.rects, text: g.text, area: g.area, thumb: g.thumb })), qid)
     } else {
       addExcerpt(transcript.id, code.id, group[0].start, group[0].end, qid)
     }
@@ -968,6 +971,16 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
                 <div className="transcript-tools" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {findControl}
 
+                  <button
+                    type="button"
+                    className={'area-toggle' + (areaMode ? ' is-on' : '')}
+                    aria-pressed={areaMode}
+                    title="Modo Área: desenhe um retângulo sobre uma figura, gráfico ou quadro para codificá-lo (A)"
+                    onClick={() => setAreaMode((v) => !v)}
+                  >
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeDasharray="3 2" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1.5" /></svg>
+                    Área
+                  </button>
                   <div className="pdf-zoom" style={{ marginLeft: 'auto' }}>
                     <span className="label">
                       {transcript.pageCount ? `${transcript.pageCount} páginas` : 'PDF'}
@@ -997,6 +1010,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
                   commentedIds={commentedIds}
                   excerpts={excerpts.map((e) => ({ ...e, color: codesById[e.codeId]?.color }))}
                   scale={zoom || 1}
+                  areaMode={areaMode}
                   onSelect={handlePdfSelect}
                   hoverCodeId={hoverCode}
                   onHighlightClick={(ex, e) => {
@@ -1084,6 +1098,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
 
           {pendingSel && (
             <div className="selection-strip">
+              {pendingSel.thumb && <img className="selection-thumb" src={pendingSel.thumb} alt="Recorte selecionado" />}
               <div
                 className="selection-strip-quote"
                 title={(pendingSel.quote || pendingSel.text || '') + '\n\nArraste a seleção até um código para codificar'}
@@ -1229,6 +1244,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
                         }}
                       >
                         <span className="code-quote-text">
+                          {e.thumb && <img className="code-quote-thumb" src={e.thumb} alt="" />}
                           {e.page ? `p.${e.page} · ` : ''}{e.text.slice(0, 90)}
                         </span>
                       </button>
@@ -1382,6 +1398,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
             )
             : (
               <div className="quote">
+                {activeExcerpt.excerpt.thumb && <img className="popover-thumb" src={activeExcerpt.excerpt.thumb} alt="Recorte codificado" />}
                 “{activeExcerpt.excerpt.text.slice(0, 140)}”
                 <button
                   className="quote-edit-btn"

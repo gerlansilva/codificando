@@ -34,6 +34,8 @@ computador.
 
 - **Arrastar e soltar**: seleção → código, código → trecho, código → código
   (subcódigo ou mesclar) e, nas Redes, nó → nó para criar uma relação.
+- **Modo Área**: um retângulo sobre figuras, gráficos e quadros do PDF vira citação, com
+  miniatura do recorte.
 - **Tela inicial** com Novo projeto, Abrir e Recentes. Não é obrigatório criar um projeto
   antes: tudo é salvo sozinho, e um arquivo apagado gera um aviso, não um projeto vazio.
 - **Próximo passo** sempre visível na tela do projeto.

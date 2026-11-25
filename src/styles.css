@@ -2941,3 +2941,16 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 .start-credit a:hover, .about-line a:hover { text-decoration: underline; }
 .about-line { margin: 4px 0 2px; font-size: 14px; }
 .about-cite { margin: 4px 0 10px; padding: 10px 12px; border-radius: 8px; background: #f5f7fa; font-size: 13px; line-height: 1.5; user-select: text; }
+
+/* ── Modo Área (figuras, gráficos, quadros) ───────────────────────── */
+.area-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; border: 1px solid #dfe4ec; background: #fff; font-size: 13px; color: #3f4b5d; cursor: pointer; }
+.area-toggle:hover { border-color: #2f6db5; color: #2f6db5; }
+.area-toggle.is-on { background: #2f6db5; border-color: #2f6db5; color: #fff; }
+.pdf-pages--area .pdf-page, .pdf-pages--area .pdf-page .textLayer, .pdf-pages--area .pdf-page .textLayer span { cursor: crosshair !important; }
+body.is-drawing-area, body.is-drawing-area * { cursor: crosshair !important; user-select: none !important; }
+.pdf-selection--area { background: rgba(47, 109, 181, 0.08); box-shadow: inset 0 0 0 2px #2f6db5; outline: 1px dashed rgba(255, 255, 255, 0.9); outline-offset: -4px; }
+.pdf-highlight--area { border-radius: 3px; }
+.selection-thumb { display: block; max-width: 100%; max-height: 110px; margin: 0 0 6px; border-radius: 4px; border: 1px solid #e3e8ef; }
+.quote-thumb { display: block; max-width: 180px; max-height: 90px; margin-bottom: 4px; border-radius: 4px; border: 1px solid #e3e8ef; }
+.code-quote-thumb { display: inline-block; vertical-align: middle; width: 34px; height: 24px; object-fit: cover; margin-right: 6px; border-radius: 3px; border: 1px solid #e3e8ef; }
+.popover-thumb { display: block; max-width: 100%; max-height: 160px; margin-bottom: 8px; border-radius: 4px; border: 1px solid #e3e8ef; }
