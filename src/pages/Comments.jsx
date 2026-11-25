@@ -126,7 +126,7 @@ export default function Comments () {
                     <th>Trecho</th>
                     <th style={{ width: 300 }}>Comentário</th>
                     <th style={{ width: 130 }}>Quando</th>
-                    <th style={{ width: 84 }} />
+                    <th style={{ width: 84 }}><span className="sr-only">Ações</span></th>
                   </tr>
                 </thead>
                 <tbody>

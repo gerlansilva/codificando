@@ -9,6 +9,13 @@ function extOf (name) {
   return i >= 0 ? name.slice(i).toLowerCase() : ''
 }
 
+/** "Entrevista_P03-final.pdf" → "Entrevista P03-final" (nome legível; o arquivo original fica guardado) */
+export function cleanDocName (name) {
+  const base = String(name || '').replace(/\.[a-z0-9]{2,5}$/i, '')
+  const out = base.replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return out || String(name || '')
+}
+
 export const ACCEPT = ['.pdf', '.doc', '.docx', '.txt', '.rtf']
 
 /**
@@ -72,7 +79,7 @@ export async function importOneFile (file, createTranscript, customName = '', op
 
   if (body.length > MAX_CHARS) return { ok: false, name: file.name, error: 'big' }
   if (extra.rendererType === 'text') extra.dialogue = detectDialogue(body)
-  const title = (customName || '').trim() || file.name
+  const title = (customName || '').trim() || cleanDocName(file.name)
   const created = createTranscript(title, body, extra)
   return { ok: true, name: title, id: created?.id }
 }

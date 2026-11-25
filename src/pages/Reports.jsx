@@ -57,7 +57,7 @@ export default function Reports () {
       return `### ${t.name}\n\n${t.body}\n\n--- TRECHOS CODIFICADOS ---\n${coded}\n`
     })
     const ok = await download('investigando-documentos.txt', parts.join('\n====================\n\n'), 'text/plain;charset=utf-8')
-    if (ok) bridge.notify('Exportação concluída', 'Transcrições e códigos salvos em investigando-documentos.txt.')
+    if (ok) bridge.notify('Exportação concluída', 'Documentos e códigos salvos em investigando-documentos.txt.')
   }
 
   const runExport = async (kind, fn) => {
@@ -91,7 +91,7 @@ export default function Reports () {
       <div className="page">
         <div className="pane-page">
           <div className="stat-grid">
-            <div className="stat"><div className="n">{stats.transcripts}</div><div className="l">transcrições</div></div>
+            <div className="stat"><div className="n">{stats.transcripts}</div><div className="l">documentos</div></div>
             <div className="stat"><div className="n">{stats.codes}</div><div className="l">códigos</div></div>
             <div className="stat"><div className="n">{stats.excerpts}</div><div className="l">trechos codificados</div></div>
             <div className="stat"><div className="n">{stats.codedTranscripts}</div><div className="l">documentos com código</div></div>
@@ -100,23 +100,24 @@ export default function Reports () {
           <div className="report-export">
             <span className="report-export-label">Exportar</span>
             <div className="report-actions">
-            <button className="btn" onClick={exportCodesCsv}>Codebook (.csv)</button>
-            <button className="btn" onClick={exportExcerptsCsv}>Trechos codificados (.csv)</button>
-            <button className="btn" onClick={exportAllTxt}>Transcrições + códigos (.txt)</button>
-            <button
-              className="btn"
-              disabled={!!exporting}
-              onClick={() => runExport('docx', exportDocx)}
-            >
-              {exporting === 'docx' ? 'Gerando DOCX…' : 'Exportar DOCX'}
-            </button>
-            <button
-              className="btn"
-              disabled={!!exporting}
-              onClick={() => runExport('html', exportHtml)}
-            >
-              {exporting === 'html' ? 'Gerando HTML…' : 'Exportar HTML'}
-            </button>
+              <div className="report-group">
+                <span className="report-group-label">Relatório completo</span>
+                <button className="btn btn--blue" disabled={!!exporting} onClick={() => runExport('docx', exportDocx)}>
+                  {exporting === 'docx' ? 'Gerando…' : 'Word (.docx)'}
+                </button>
+                <button className="btn" disabled={!!exporting} onClick={() => runExport('html', exportHtml)}>
+                  {exporting === 'html' ? 'Gerando…' : 'Página web (.html)'}
+                </button>
+              </div>
+              <div className="report-group">
+                <span className="report-group-label">Dados para planilha</span>
+                <button className="btn" onClick={exportCodesCsv}>Livro de códigos (.csv)</button>
+                <button className="btn" onClick={exportExcerptsCsv}>Trechos codificados (.csv)</button>
+              </div>
+              <div className="report-group">
+                <span className="report-group-label">Texto simples</span>
+                <button className="btn" onClick={exportAllTxt}>Documentos + códigos (.txt)</button>
+              </div>
             </div>
           </div>
 
@@ -155,7 +156,7 @@ export default function Reports () {
           <h2 className="report-section">Trechos por documento</h2>
           <table className="t-table">
             <thead>
-              <tr><th>Transcrição</th><th style={{ width: 140 }}>Trechos</th><th style={{ width: 180 }}>Adicionada em</th></tr>
+              <tr><th>Documento</th><th style={{ width: 140 }}>Trechos</th><th style={{ width: 180 }}>Adicionado em</th></tr>
             </thead>
             <tbody>
               {data.transcripts.map((t) => (

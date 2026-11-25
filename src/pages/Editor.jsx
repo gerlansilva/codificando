@@ -32,7 +32,7 @@ function pointToOffset (blockEl, node, offset) {
 }
 
 export default function Editor ({ transcript, focusPage = null, focusExcerpt = null, findTerm = null, findOcc = null, inspectQuote = null }) {
-  const { data, update, undo, createCode, addExcerpt, addPdfExcerpt, removeExcerpt, deleteTranscript, updateTranscript, updateCode, deleteCode, mergeCodes, saveMemo, repairExcerptTexts } = useData()
+  const { data, update, undo, createCode, addExcerpt, addPdfExcerpt, removeExcerpt, deleteTranscript, updateTranscript, updateCode, deleteCode, mergeCodes, moveCode, saveMemo, repairExcerptTexts } = useData()
   const [menu, setMenu] = useState(null) // 'transcript' | 'more'
   const [activeExcerpt, setActiveExcerpt] = useState(null)
   const [pendingSel, setPendingSel] = useState(null)
@@ -55,6 +55,9 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
   const [ctxMenu, setCtxMenu] = useState(null)
   const [mergePair, setMergePair] = useState(null)
   const [mergeHover, setMergeHover] = useState(null)
+  const [dragGhost, setDragGhost] = useState(null) // { label, color, x, y, hint }
+  const [quoteHover, setQuoteHover] = useState(null)
+  const [flashedCode, setFlashedCode] = useState(null)
   const [collapsedCodes, setCollapsedCodes] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('investigando.collapsedCodes') || '[]')) } catch { return new Set() }
   })
@@ -82,7 +85,8 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
   const [docGroup, setDocGroup] = useState(transcript.group || '')
   const repairingRef = useRef(false)
   const [flashBlock, setFlashBlock] = useState(null)
-  const [zoom, setZoom] = useState(() => Number(localStorage.getItem('investigando.zoom')) || 0.95)
+  const zoomKey = 'investigando.zoom.' + transcript.id
+  const [zoom, setZoom] = useState(() => Number(localStorage.getItem(zoomKey)) || null)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState({ name: '', color: CODE_COLORS[0], parentId: '', memo: '' })
   const [mergeInto, setMergeInto] = useState('')
@@ -144,9 +148,15 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
     localStorage.setItem('investigando.codesWidth', String(codesWidth))
   }, [codesWidth])
 
+  // zoom: na primeira abertura, ajusta a página à largura do painel; depois, lembra por documento
+  const fitWidth = useCallback(() => {
+    const w = paneRef.current?.clientWidth || 800
+    return Math.min(2, Math.max(0.5, +((w - 56) / 612).toFixed(2)))
+  }, [])
   useEffect(() => {
-    localStorage.setItem('investigando.zoom', String(zoom))
-  }, [zoom])
+    if (zoom == null) setZoom(fitWidth())
+    else localStorage.setItem(zoomKey, String(zoom))
+  }, [zoom, zoomKey, fitWidth])
 
   // Reparo único: reconstrói o texto de citações antigas (spans colados)
   useEffect(() => {
@@ -404,10 +414,59 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
     return () => pane.removeEventListener('scroll', onScroll)
   }, [])
 
+  const flashCode = (id) => {
+    setFlashedCode(id)
+    setTimeout(() => setFlashedCode((cur) => (cur === id ? null : cur)), 900)
+  }
+
   const startCodeDrag = (e, code) => {
     if (e.button !== 0) return
+    if (e.target.closest('button')) return
     dragSnapshotRef.current = pendingSel
-    codeDragRef.current = { code, x: e.clientX, y: e.clientY, moved: false }
+    codeDragRef.current = { kind: 'code', code, x: e.clientX, y: e.clientY, moved: false }
+  }
+
+  // o ponteiro está sobre a seleção atual? (permite arrastá-la até um código)
+  const pointInSelection = (x, y) => {
+    if (!pendingSel) return false
+    if (pendingSel.pages) {
+      for (const p of pendingSel.pages) {
+        const el = paneRef.current?.querySelector('.pdf-page[data-page="' + p.page + '"]')
+        if (!el) continue
+        const r = el.getBoundingClientRect()
+        const nx = (x - r.left) / r.width
+        const ny = (y - r.top) / r.height
+        if ((p.rects || []).some((q) => nx >= q.x && nx <= q.x + q.w && ny >= q.y - 0.004 && ny <= q.y + q.h + 0.004)) return true
+      }
+      return false
+    }
+    const sel = window.getSelection()
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return false
+    return [...sel.getRangeAt(0).getClientRects()].some((r) => x >= r.left && x <= r.right && y >= r.top - 2 && y <= r.bottom + 2)
+  }
+
+  const startSelectionDrag = (e) => {
+    if (e.button !== 0 || e.detail > 1 || !pointInSelection(e.clientX, e.clientY)) return
+    e.preventDefault()
+    e.stopPropagation()
+    dragSnapshotRef.current = pendingSel
+    codeDragRef.current = { kind: 'selection', x: e.clientX, y: e.clientY, moved: false }
+  }
+
+  // citação (trecho já codificado) sob o ponteiro, no texto ou no PDF
+  const quoteAt = (x, y) => {
+    const el = document.elementFromPoint(x, y)
+    const span = el?.closest?.('[data-quote-id]')
+    if (span) return span.dataset.quoteId
+    const pageEl = el?.closest?.('.pdf-page[data-page]')
+    if (!pageEl) return null
+    const r = pageEl.getBoundingClientRect()
+    const nx = (x - r.left) / r.width
+    const ny = (y - r.top) / r.height
+    const page = Number(pageEl.dataset.page)
+    const hit = excerpts.find((ex) => Number(ex.page) === page && Array.isArray(ex.rects) &&
+      ex.rects.some((q) => nx >= q.x && nx <= q.x + q.w && ny >= q.y && ny <= q.y + q.h))
+    return hit ? (hit.quoteId || hit.id) : null
   }
 
 
@@ -546,17 +605,40 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
       const id = el?.dataset?.codeId
       return id ? id : null
     }
+    const quoteLabel = (qid) => {
+      const names = excerpts.filter((e) => (e.quoteId || e.id) === qid).map((e) => codesById[e.codeId]?.name).filter(Boolean)
+      return names.length ? names.join(', ') : 'citação'
+    }
 
     const onMove = (e) => {
       const d = codeDragRef.current
       if (!d) return
       if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 5) return
-      d.moved = true
-      setDragCode(d.code)
-      window.getSelection()?.removeAllRanges()
+      if (!d.moved) {
+        d.moved = true
+        document.body.classList.add('is-dragging')
+        if (d.kind === 'code') setDragCode(d.code)
+      }
       const target = codeRowAt(e.clientX, e.clientY)
+      let hint = ''
+      if (d.kind === 'selection') {
+        setMergeHover(target)
+        const into = target && data.codes.find((c) => c.id === target)
+        hint = into ? 'Codificar com “' + into.name + '”' : 'Solte sobre um código'
+        setDragGhost({ label: (d.label ||= ((dragSnapshotRef.current?.quote || dragSnapshotRef.current?.text || '').slice(0, 60) + '…')), color: into?.color || 'var(--blue)', x: e.clientX, y: e.clientY, hint })
+        return
+      }
+      window.getSelection()?.removeAllRanges()
       setMergeHover(target && target !== d.code.id ? target : null)
-      setDropReady(!target && overPane(e.clientX, e.clientY))
+      const inPane = !target && overPane(e.clientX, e.clientY)
+      const qid = inPane ? quoteAt(e.clientX, e.clientY) : null
+      setQuoteHover(qid)
+      setDropReady(inPane && !qid && !!dragSnapshotRef.current)
+      if (target && target !== d.code.id) hint = 'Soltar: subcódigo ou mesclar'
+      else if (qid) hint = 'Adicionar à citação (' + quoteLabel(qid) + ')'
+      else if (inPane && dragSnapshotRef.current) hint = 'Aplicar à seleção'
+      else if (inPane) hint = 'Solte sobre um trecho marcado ou selecione um trecho antes'
+      setDragGhost({ label: d.code.name, color: d.code.color, x: e.clientX, y: e.clientY, hint })
     }
     const onUp = (e) => {
       const d = codeDragRef.current
@@ -564,18 +646,25 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
       if (d?.moved) {
         const snapshot = dragSnapshotRef.current
         const target = codeRowAt(e.clientX, e.clientY)
-        if (target && target !== d.code.id) {
+        if (d.kind === 'selection') {
+          const into = target && data.codes.find((c) => c.id === target)
+          if (into && snapshot) { setPendingSel(snapshot); applyCode(into.name, snapshot); flashCode(into.id) }
+        } else if (target && target !== d.code.id) {
           const into = data.codes.find((c) => c.id === target)
-          if (into) setMergePair({ from: d.code, into: into.id })
-        } else if (overPane(e.clientX, e.clientY) && snapshot) {
-          setPendingSel(snapshot)
-          applyCode(d.code.name, snapshot)
+          if (into) setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'drop-code', from: d.code, into })
+        } else if (overPane(e.clientX, e.clientY)) {
+          const qid = quoteAt(e.clientX, e.clientY)
+          if (qid) { addCodeToQuote(d.code.name, qid); setFlashQuote(qid); setTimeout(() => setFlashQuote(null), 900) }
+          else if (snapshot) { setPendingSel(snapshot); applyCode(d.code.name, snapshot); flashCode(d.code.id) }
         }
         dragSnapshotRef.current = null
         suppressClickRef.current = true
         setTimeout(() => { suppressClickRef.current = false }, 0)
       }
+      document.body.classList.remove('is-dragging')
       setDragCode(null)
+      setDragGhost(null)
+      setQuoteHover(null)
       setDropReady(false)
       setMergeHover(null)
     }
@@ -585,7 +674,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
     }
-  }, [pendingSel, applyCode])
+  }, [pendingSel, applyCode, excerpts, data.codes])
 
   const exportTxt = async () => {
     const name = transcript.name.replace(/\.[^.]+$/, '') + '.txt'
@@ -760,17 +849,19 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
     commentTimeout.current = setTimeout(() => saveMemo(quoteId, value, 'comment'), 500)
   }
 
-  const addCodeToQuote = (name) => {
-    if (!quoteId || !name.trim()) return
+  const addCodeToQuote = (name, qid = quoteId) => {
+    if (!qid || !name.trim()) return
     let code = data.codes.find((c) => c.name.toLowerCase() === name.trim().toLowerCase())
     if (!code) code = createCode(name)
-    const group = excerpts.filter((e) => (e.quoteId || e.id) === quoteId)
-    if (!group.length) return
-    if (group.some((g) => g.codeId === code.id)) return
+    const all = excerpts.filter((e) => (e.quoteId || e.id) === qid)
+    if (!all.length) return
+    if (all.some((g) => g.codeId === code.id)) return
+    // uma citação de PDF pode ter várias páginas: copia as páginas de um único código
+    const group = all.filter((g) => g.codeId === all[0].codeId)
     if (group[0].page) {
-      addPdfExcerpt(transcript.id, code.id, group.map((g) => ({ page: g.page, rects: g.rects, text: g.text })), quoteId)
+      addPdfExcerpt(transcript.id, code.id, group.map((g) => ({ page: g.page, rects: g.rects, text: g.text })), qid)
     } else {
-      addExcerpt(transcript.id, code.id, group[0].start, group[0].end, quoteId)
+      addExcerpt(transcript.id, code.id, group[0].start, group[0].end, qid)
     }
   }
 
@@ -840,19 +931,11 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
             </div>
           )}
         <div className="topbar-actions">
-          {isPdf
-            ? (
-              <button className="btn" onClick={exportExcerptsCsv}>Exportar trechos (.csv)</button>
-            )
-            : (
-              <button className="btn" onClick={() => navigate('/documents/' + transcript.id + '/print')}>
-                Exportar PDF
-              </button>
-            )}
           <div className="dropdown">
-            <button className="btn" onClick={() => setMenu(menu === 'more' ? null : 'more')}>⋯</button>
+            <button className="btn btn--ghost" aria-label="Mais ações do documento" aria-haspopup="menu" onClick={() => setMenu(menu === 'more' ? null : 'more')}>Documento ▾</button>
             {menu === 'more' && (
               <div className="dropdown-menu" style={{ right: 0, left: 'auto' }}>
+                {isPdf && <button onClick={() => { setMenu(null); exportExcerptsCsv() }}>Exportar trechos (.csv)</button>}
                 <button onClick={() => { setMenu(null); startTitleEdit() }}>Renomear documento</button>
                 <button onClick={exportTxt}>Exportar documento (.txt)</button>
                 <button onClick={() => { setMenu(null); navigate('/documents/' + transcript.id + '/print') }}>
@@ -871,6 +954,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
         <div
           className={'transcript-pane' + (dropReady ? ' drop-ready' : '')}
           ref={paneRef}
+          onMouseDownCapture={startSelectionDrag}
           onMouseUp={handleMouseUp}
           onContextMenu={(e) => {
             if (!pendingSel) return
@@ -888,9 +972,10 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
                     <span className="label">
                       {transcript.pageCount ? `${transcript.pageCount} páginas` : 'PDF'}
                     </span>
-                    <button className="icon-btn" title="Diminuir zoom" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))}>−</button>
-                    <span className="label" style={{ width: 40, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
-                    <button className="icon-btn" title="Aumentar zoom" onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}>+</button>
+                    <button className="icon-btn" title="Diminuir zoom" aria-label="Diminuir zoom" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))}>−</button>
+                    <span className="label" style={{ width: 40, textAlign: 'center' }}>{Math.round((zoom || 1) * 100)}%</span>
+                    <button className="icon-btn" title="Aumentar zoom" aria-label="Aumentar zoom" onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}>+</button>
+                    <button className="btn btn--ghost btn--sm" title="Ajustar a página à largura" onClick={() => setZoom(fitWidth())}>Ajustar</button>
                   </div>
                   <button
                     className="icon-btn"
@@ -901,6 +986,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
                   </button>
                 </div>
 
+                {zoom != null && (
                 <PdfViewer
                   fileKey={transcript.fileKey}
                   focusPage={currentHit?.page || scrollPage || focusPage}
@@ -910,7 +996,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
                   selectionActive={!!pendingSel}
                   commentedIds={commentedIds}
                   excerpts={excerpts.map((e) => ({ ...e, color: codesById[e.codeId]?.color }))}
-                  scale={zoom}
+                  scale={zoom || 1}
                   onSelect={handlePdfSelect}
                   hoverCodeId={hoverCode}
                   onHighlightClick={(ex, e) => {
@@ -918,6 +1004,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
                     setActiveExcerpt({ excerpt: ex, x: e.clientX, y: e.clientY })
                   }}
                 />
+                )}
               </>
             )
             : (
@@ -964,7 +1051,8 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
                           return (
                             <span
                               key={j}
-                              className={'excerpt' + (hoverCode === seg.excerpt.codeId ? ' excerpt--hover' : '')}
+                              className={'excerpt' + (hoverCode === seg.excerpt.codeId ? ' excerpt--hover' : '') + (quoteHover && quoteHover === (seg.excerpt.quoteId || seg.excerpt.id) ? ' excerpt--drop' : '')}
+                              data-quote-id={seg.excerpt.quoteId || seg.excerpt.id}
                               style={{ backgroundColor: tint(code?.color || '#FFE28B', hoverCode === seg.excerpt.codeId ? 0.38 : 0.24) }}
                               title={code?.name}
                               onClick={(e) => {
@@ -996,22 +1084,27 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
 
           {pendingSel && (
             <div className="selection-strip">
-              <div className="selection-strip-quote">
-                “{(pendingSel.quote || pendingSel.text || '').slice(0, 90)}”
+              <div
+                className="selection-strip-quote"
+                title={(pendingSel.quote || pendingSel.text || '') + '\n\nArraste a seleção até um código para codificar'}
+              >
+                “{pendingSel.quote || pendingSel.text || ''}”
               </div>
               <div className="selection-strip-meta">
-                <span>
+                <span className="selection-strip-where">
                   {pendingSel.pages ? `pág. ${pendingSel.pages.map((p) => p.page).join(', ')}` : 'trecho'}
-                  {' · '}{(pendingSel.text || pendingSel.quote || '').length} car
-                  {appliedHere.length > 0
-                    ? ` · ${appliedHere.length} ✓`
-                    : coveredCodes.length > 0 ? '' : ' · clique um código'}
+                  {(() => {
+                    const ids = [...new Set([...coveredCodes.map((c) => c.id), ...appliedHere])]
+                    if (!ids.length) return ' · clique ou arraste até um código'
+                    return (
+                      <> · codificado em:{' '}
+                        {ids.map((id) => codesById[id]).filter(Boolean).map((c) => (
+                          <span key={c.id} className="covered-chip"><span className="code-dot" style={{ background: c.color }} />{c.name}</span>
+                        ))}
+                      </>
+                    )
+                  })()}
                 </span>
-                {coveredCodes.length > 0 && (
-                  <span className="covered">
-                    já: {coveredCodes.map((c) => c.name).join(', ')}
-                  </span>
-                )}
                 <button
                   className="strip-btn strip-copy"
                   title="Copiar texto puro"
@@ -1049,25 +1142,35 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
             style={{ marginBottom: 10 }}
           />
 
-          {!pendingSel && excerptCountAll(excerpts) === 0 && (
+          {!pendingSel && data.codes.length === 0 && (
             <div className="hint">
               <span className="big">Adicione um código.</span>
               Selecione um trecho no documento e digite o nome do código acima.
             </div>
+          )}
+          {!pendingSel && data.codes.length > 0 && excerptCountAll(excerpts) === 0 && (
+            <div className="hint-line">Selecione um trecho e clique num código — ou arraste o código até o trecho.</div>
           )}
 
           <div className="code-list">
             {codeList.map((c) => (
               <React.Fragment key={c.id}>
               <div
-                className={'code-row' + (dragCode?.id === c.id ? ' dragging' : '') + (mergeHover === c.id ? ' drop-merge' : '')}
+                className={'code-row' + (dragCode?.id === c.id ? ' dragging' : '') + (mergeHover === c.id ? ' drop-merge' : '') + (flashedCode === c.id ? ' code-row--flash' : '')}
                 data-code-id={c.id}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    if (pendingSel) { applyCode(c.name); flashCode(c.id) } else setExpandedCode(expandedCode === c.id ? null : c.id)
+                  }
+                }}
                 style={{ paddingLeft: 8 + (c.depth || 0) * 14 }}
                 onMouseDown={(e) => startCodeDrag(e, c)}
                 onClick={() => {
                   if (suppressClickRef.current) return
-                  if (pendingSel) applyCode(c.name)
-                  else setExpandedCode(expandedCode === c.id ? null : c.id)
+                  if (pendingSel) { applyCode(c.name); flashCode(c.id) } else setExpandedCode(expandedCode === c.id ? null : c.id)
                 }}
                 onMouseEnter={() => setHoverCode(c.id)}
                 onMouseLeave={() => setHoverCode(null)}
@@ -1076,7 +1179,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
                   setEditingId(null)
                   setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'code', code: c })
                 }}
-                title={pendingSel ? 'Aplicar este código ao trecho selecionado' : c.name}
+                title={pendingSel ? 'Clique (ou arraste a seleção até aqui) para codificar' : 'Arraste para um trecho marcado, para outro código (subcódigo/mesclar) ou clique para ver as citações'}
               >
                 {hasChildren(c.id)
                   ? (
@@ -1097,6 +1200,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
                 </span>
                 <button
                   className="code-manage"
+                  aria-label={'Editar código ' + c.name}
                   title="Editar código (nome, cor, hierarquia, mesclar, excluir)"
                   onClick={(e) => { e.stopPropagation(); startEdit(c) }}
                 >
@@ -1350,7 +1454,7 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
             >
               {copied ? 'Copiado' : 'Copiar'}
             </button>
-            <span className="quote-hint">{`Delete remove a citação · ${modKey('Z')} desfaz`}</span>
+            <span className="quote-hint">{`Tecla Delete remove a citação · ${modKey('Z')} desfaz`}</span>
           </div>
         </div>
       )}
@@ -1395,6 +1499,36 @@ export default function Editor ({ transcript, focusPage = null, focusExcerpt = n
             }
           ]}
         />
+      )}
+
+      {ctxMenu && ctxMenu.kind === 'drop-code' && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          onClose={() => setCtxMenu(null)}
+          items={[
+            { label: 'Tornar subcódigo de “' + ctxMenu.into.name + '”', onClick: () => { moveCode(ctxMenu.from.id, ctxMenu.into.id, 'inside'); flashCode(ctxMenu.from.id) } },
+            { label: 'Colocar logo abaixo de “' + ctxMenu.into.name + '”', onClick: () => moveCode(ctxMenu.from.id, ctxMenu.into.id, 'after') },
+            { sep: true },
+            { label: 'Mesclar em “' + ctxMenu.into.name + '”…', onClick: () => setMergePair({ from: ctxMenu.from, into: ctxMenu.into.id }) }
+          ]}
+        />
+      )}
+
+      {dragGhost && (
+        <div
+          className="drag-ghost"
+          style={dragGhost.x > window.innerWidth - 320
+            ? { right: window.innerWidth - dragGhost.x + 14, top: dragGhost.y + 12 }
+            : { left: dragGhost.x + 14, top: dragGhost.y + 12 }}
+          aria-hidden="true"
+        >
+          <span className="drag-ghost-label">
+            <span className="code-dot" style={{ background: dragGhost.color }} />
+            {dragGhost.label}
+          </span>
+          {dragGhost.hint && <span className="drag-ghost-hint">{dragGhost.hint}</span>}
+        </div>
       )}
 
       {mergePair && (

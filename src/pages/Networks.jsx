@@ -10,6 +10,7 @@ import {
   isDirected,
   nodeLabelLayout,
   nodeSize,
+  codeFill,
   sizeNodes,
   RELATION_TEXT,
   layoutNetwork,
@@ -87,6 +88,8 @@ export default function Networks () {
   const clickRef = useRef(null)
   const [layoutSeed, setLayoutSeed] = useState(0)
   const [relationModal, setRelationModal] = useState(null)
+  const [exportMenu, setExportMenu] = useState(false)
+  const [linkTarget, setLinkTarget] = useState(null) // nó sob o nó arrastado (soltar = relacionar)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [, forceRender] = useState(0)
 
@@ -196,7 +199,7 @@ export default function Networks () {
       : null
     if (node) {
       setSelected(node.id)
-      dragRef.current = { id: node.id, dx: node.x - point.x, dy: node.y - point.y }
+      dragRef.current = { id: node.id, dx: node.x - point.x, dy: node.y - point.y, ox: node.x, oy: node.y }
     } else {
       panRef.current = { startX: e.clientX, startY: e.clientY, x: pan.x, y: pan.y }
       setSelected(null)
@@ -223,6 +226,15 @@ export default function Networks () {
       if (node) {
         node.x = Math.max(20, Math.min(W - 20, point.x + dragRef.current.dx))
         node.y = Math.max(20, Math.min(H - 20, point.y + dragRef.current.dy))
+        // outro nó sob o ponteiro? soltar ali cria uma relação
+        const over = nodes.find((o) => {
+          if (o.id === node.id) return false
+          const box = nodeSize(o)
+          const hw = box ? box.w / 2 + 4 : 14
+          const hh = box ? box.h / 2 + 4 : 14
+          return Math.abs(point.x - o.x) <= hw && Math.abs(point.y - o.y) <= hh
+        })
+        setLinkTarget(over ? over.id : null)
         forceRender((v) => v + 1)
       }
       return
@@ -244,6 +256,17 @@ export default function Networks () {
         fit()
       }
     }
+    const drag = dragRef.current
+    if (drag && linkTarget && e?.type === 'pointerup') {
+      const node = byId.get(drag.id)
+      const target = byId.get(linkTarget)
+      if (node) { node.x = drag.ox; node.y = drag.oy }
+      if (node && target) {
+        setSelected(node.id)
+        setRelationModal({ mode: 'create', target })
+      }
+    }
+    setLinkTarget(null)
     clickRef.current = null
     dragRef.current = null
     panRef.current = null
@@ -546,19 +569,28 @@ export default function Networks () {
     <>
       <div className="topbar">
         <h1>Redes</h1>
+        <p className="net-hint">Arraste um nó para reposicioná-lo · solte-o sobre outro para criar uma relação · clique num código para ver suas citações</p>
         <div className="topbar-actions">
           <button className="btn" onClick={reorganize} title="Gera outra organização determinística da rede">
             Reorganizar
           </button>
-          <button className="btn" disabled={exporting || !nodes.length} onClick={exportPrint} title="SVG com tipo maior e até 24 trechos, para figura de 16 cm">
-            Figura 16 cm
-          </button>
-          <button className="btn" disabled={exporting || !nodes.length} onClick={exportPng} title="PNG de 3000 × 3000 px (fallback)">
-            {exporting ? 'Exportando…' : 'PNG'}
-          </button>
-          <button className="btn btn--blue" disabled={exporting || !nodes.length} onClick={exportSvg} title="Vetorial, sem perda ao ampliar">
-            SVG
-          </button>
+<div className="dropdown">
+            <button
+              className="btn btn--blue"
+              disabled={exporting || !nodes.length}
+              aria-haspopup="menu"
+              onClick={() => setExportMenu((v) => !v)}
+            >
+              {exporting ? 'Exportando…' : 'Exportar ▾'}
+            </button>
+            {exportMenu && (
+              <div className="dropdown-menu" style={{ right: 0, left: 'auto' }} onClick={() => setExportMenu(false)}>
+                <button onClick={exportSvg}>Imagem vetorial (.svg)</button>
+                <button onClick={exportPrint}>Figura para artigo — 16 cm (.svg)</button>
+                <button onClick={exportPng}>Imagem (.png, 3000 px)</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -797,7 +829,7 @@ export default function Networks () {
                         return (
                           <g
                             key={n.id}
-                            className="net-node"
+                            className={'net-node' + (linkTarget === n.id ? ' net-node--link-target' : '')}
                             opacity={dim ? 0.35 : 1}
                             tabIndex={0}
                             role="button"
@@ -846,9 +878,9 @@ export default function Networks () {
                                     width={box.w}
                                     height={box.h}
                                     rx={box.radius}
-                                    fill={n.kind === 'quote' ? '#fff' : n.color}
-                                    stroke={isSelected ? '#15294b' : n.kind === 'quote' ? n.color : '#fff'}
-                                    strokeWidth={isSelected ? 2.4 : n.kind === 'quote' ? 1.1 : 1.6}
+                                    fill={n.kind === 'quote' ? '#fff' : codeFill(n.color)}
+                                    stroke={isSelected ? '#15294b' : n.color}
+                                    strokeWidth={isSelected ? 2.4 : n.kind === 'quote' ? 1.1 : 1.8}
                                   />
                                   {n.kind === 'quote' && (
                                     <rect
@@ -1227,7 +1259,7 @@ export default function Networks () {
           items={relationModal.mode === 'edit' ? [] : relationItems}
           fixedTarget={relationModal.mode === 'edit'
             ? { id: relationModal.other.id, name: relationModal.other.label }
-            : null}
+            : relationModal.target ? { id: relationModal.target.id, name: relationModal.target.label } : null}
           initialType={relationModal.edge?.type}
           initialLabel={relationModal.edge?.label || ''}
           submitLabel={relationModal.mode === 'edit' ? 'Salvar' : 'Relacionar'}

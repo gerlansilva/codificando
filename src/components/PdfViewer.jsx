@@ -1,3 +1,4 @@
+import { orderLinesByColumn, coverageColumns } from '../lib/pdfOrder.js'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { makeSearchRegex } from '../lib/search.js'
 import { tintAlpha } from '../lib/colors.js'
@@ -316,7 +317,7 @@ function buildSelectionText (pages, root, range = null) {
       const text = clippedText(span, range).trim()
       if (!text) continue
       const key = Math.round((r.top - pr.top) / 4)
-      const line = lines.get(key) || { x: r.left - pr.left, y: r.top - pr.top, spans: [] }
+      const line = lines.get(key) || { x: r.left - pr.left, y: r.top - pr.top, h: r.height, spans: [] }
       line.spans.push({ x: r.left - pr.left, w: r.width, text })
       lines.set(key, line)
     }
@@ -334,7 +335,7 @@ function buildSelectionText (pages, root, range = null) {
           text += sp.text
           p = sp.x + sp.w
         }
-        items.push({ x: run[0].x, y: l.y, text: text.replace(/\s+/g, ' ').trim() })
+        items.push({ x: run[0].x, y: l.y, h: l.h, text: text.replace(/\s+/g, ' ').trim() })
         run = []
       }
       for (const sp of l.spans) {
@@ -346,23 +347,32 @@ function buildSelectionText (pages, root, range = null) {
       flush()
     }
 
-    // colunas: agrupa pelas posições horizontais das linhas
-    const tolerance = Math.max(28, pr.width * 0.075)
-    const columns = []
-    for (const line of [...items].sort((a, b) => a.x - b.x)) {
-      let col = columns.find((c) => Math.abs(c.x - line.x) <= tolerance)
-      if (!col) { col = { x: line.x, lines: [] }; columns.push(col) }
-      col.lines.push(line)
-    }
-    columns.sort((a, b) => a.x - b.x)
-    const pageLines = []
-    for (const col of columns) {
-      col.lines.sort((a, b) => a.y - b.y)
-      for (const line of col.lines) pageLines.push(line.text)
-    }
+    const pageLines = orderLinesByColumn(items, bandColumns(el, pr, items))
     if (pageLines.length) pageBlocks.push(pageLines)
   }
   return pageBlocks.map((lines) => lines.join('\n')).join('\n').trim()
+}
+
+/**
+ * Colunas reais da página na faixa vertical da seleção: a cobertura horizontal
+ * de todo o texto da página nessa faixa (com folga acima e abaixo). Calhas sem
+ * texto separam colunas; o vão entre rótulo e valor de uma tabela não separa,
+ * porque os parágrafos vizinhos o cobrem.
+ */
+function bandColumns (el, pr, items) {
+  if (!items.length) return []
+  const top = Math.min(...items.map((i) => i.y)) - pr.height * 0.12
+  const bottom = Math.max(...items.map((i) => i.y + (i.h || 0))) + pr.height * 0.12
+  const spans = []
+  for (const span of el.querySelectorAll('.textLayer span')) {
+    if (!(span.textContent || '').trim()) continue
+    const r = span.getBoundingClientRect()
+    if (!r.width || !r.height) continue
+    const y = r.top - pr.top
+    if (y + r.height < top || y > bottom) continue
+    spans.push({ x0: r.left - pr.left, x1: r.right - pr.left })
+  }
+  return coverageColumns(spans, pr.width * 0.012)
 }
 
 function clippedText (span, range) {

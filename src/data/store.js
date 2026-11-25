@@ -109,6 +109,22 @@ export function loadRecentProjects () {
   } catch { return [] }
 }
 
+/** Tira um projeto da lista de recentes (ex.: arquivo apagado ou movido). */
+export function removeRecentProject (path) {
+  const next = loadRecentProjects().filter((r) => r.path !== path)
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)) } catch { /* noop */ }
+  return next
+}
+
+/** Erro tipado: o arquivo do projeto não existe mais (ou não pôde ser lido). */
+export class ProjectMissingError extends Error {
+  constructor (path) {
+    super('Projeto não encontrado: ' + path)
+    this.code = 'PROJECT_MISSING'
+    this.path = path
+  }
+}
+
 /** Registra/atualiza um projeto no topo da lista de recentes (máx. 10). */
 export function touchRecentProject (path, name) {
   if (!path) return loadRecentProjects()
@@ -194,6 +210,8 @@ export async function loadData (path = currentPath) {
   try {
     if (bridge.isNative || bridge.isElectron) {
       const raw = await bridge.load(path)
+      // arquivo escolhido pelo usuário sumiu: avisar em vez de abrir um projeto vazio
+      if (path && raw == null) throw new ProjectMissingError(path)
       const data = await decodeProject(raw, path)
       return data && data.schema ? data : emptyData()
     }
@@ -202,7 +220,7 @@ export async function loadData (path = currentPath) {
     const data = await decodeProject(JSON.parse(rawText), path)
     return data && data.schema ? data : emptyData()
   } catch (err) {
-    if (err?.code === 'PASSWORD_REQUIRED' || err?.code === 'PASSWORD_INVALID') throw err
+    if (err?.code === 'PASSWORD_REQUIRED' || err?.code === 'PASSWORD_INVALID' || err?.code === 'PROJECT_MISSING') throw err
     console.error('Falha ao carregar dados', err)
     return emptyData()
   }
