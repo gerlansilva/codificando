@@ -10,6 +10,11 @@ e um caminho claro do primeiro documento à rede. Diagnóstico completo em
 
 ### Novo
 
+- **Modo Área** para figuras, gráficos e quadros dentro do PDF: botão **▭ Área** (ou tecla
+  **A**) e um retângulo desenhado sobre a página viram uma citação como qualquer outra,
+  codificável por clique ou arraste. A citação guarda uma miniatura do recorte (mostrada
+  na faixa da seleção, no inspetor, na lista do código e em Trechos) e o texto que houver
+  dentro do retângulo, útil para quadros e tabelas.
 - **Tela inicial** com a logo, Novo projeto, Abrir projeto, Recentes e uma explicação de
   como os projetos funcionam. Aparece na primeira abertura e pelo menu do projeto.
 - **Arrastar e soltar no editor**, no estilo do ATLAS.ti: seleção → código, código →

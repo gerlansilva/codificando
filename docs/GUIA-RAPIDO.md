@@ -68,6 +68,17 @@ Há três jeitos de codificar, use o que for mais natural:
 
 Uma etiqueta acompanha o cursor e diz o que vai acontecer quando você soltar.
 
+### Figuras, gráficos e quadros
+
+![Modo Área sobre um quadro do PDF](capturas/area.png)
+
+Para codificar uma imagem, um gráfico ou um quadro que está dentro do PDF, ligue o botão
+**▭ Área** na barra do documento (ou aperte **A**) e desenhe um retângulo sobre a região.
+O recorte vira uma citação como as outras: clique num código ou arraste o recorte até ele.
+A citação guarda uma miniatura da região e, se houver texto dentro dela (rótulos de
+gráfico, células de quadro), esse texto também. Aperte **A** de novo para voltar à
+seleção de texto.
+
 Outras ajudas:
 
 - A faixa no alto do painel mostra o trecho selecionado e em quais códigos ele já está.

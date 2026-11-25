@@ -34,6 +34,7 @@ export default function Snippets () {
         map.set(qid, {
           id: qid,
           text: e.text,
+          thumb: e.thumb || null,
           page: e.page,
           transcriptId: e.transcriptId,
           excerpts: [],
@@ -284,7 +285,10 @@ export default function Snippets () {
                             ))}
                           </span>
                         </td>
-                        <td className="text" title={q.text}><span className="clamp-3">“{q.text}”</span></td>
+                        <td className="text" title={q.text}>
+                          {q.thumb && <img className="quote-thumb" src={q.thumb} alt={'Recorte da página ' + (q.page || '')} loading="lazy" />}
+                          <span className="clamp-3">{q.thumb && q.text.startsWith('[') ? q.text : '“' + q.text + '”'}</span>
+                        </td>
                         <td
                           className="comment-cell"
                           onClick={(e) => {
