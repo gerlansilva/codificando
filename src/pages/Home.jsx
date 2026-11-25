@@ -43,8 +43,10 @@ export default function Home () {
         {' · '}versão {__APP_VERSION__}
       </p>
 
+      <NextStep counts={counts} firstDoc={data.transcripts[0]} />
+
       <div className="home-actions">
-        <button className="btn btn--blue" onClick={() => navigate('/documents/new')}>Adicionar documentos</button>
+        <button className={'btn' + (counts.docs ? '' : ' btn--blue')} onClick={() => navigate('/documents/new')}>Adicionar documentos</button>
         {counts.docs > 0 && (
           <button className="btn" onClick={() => navigate('/documents')}>Ver documentos</button>
         )}
@@ -72,7 +74,8 @@ export default function Home () {
 
       <p className="home-foot">
         {modified && <span>Última alteração em {formatDate(modified)} · </span>}
-        <span>dados salvos localmente, sem envio para a rede.</span>
+        <span>tudo fica no seu computador; nada é enviado para a internet.</span>
+        <span className="home-credit"> · Codificando, criado por Gerlan Silva da Silva</span>
       </p>
 
       <h2 className="home-section home-recent-title">Projetos recentes</h2>
@@ -110,6 +113,40 @@ export default function Home () {
         <button className="btn" onClick={() => openProject()}>Abrir projeto…</button>
       </div>
     </div>
+  )
+}
+
+/** Um passo de cada vez: diz ao pesquisador iniciante o que fazer agora. */
+function NextStep ({ counts, firstDoc }) {
+  const stage = !counts.docs ? 0 : counts.quotes < 15 ? 1 : 2
+  const steps = ['Reunir os dados', 'Codificar', 'Analisar']
+  const body = [
+    {
+      text: 'Comece trazendo entrevistas, artigos ou documentos (PDF, Word, texto). Eles ficam guardados neste projeto.',
+      action: 'Adicionar documentos', go: '/documents/new'
+    },
+    {
+      text: counts.quotes
+        ? 'Continue lendo e marcando: selecione um trecho e clique num código — ou arraste o código até o trecho. Arraste um código sobre outro para criar subcódigos.'
+        : 'Abra um documento, selecione um trecho e dê um nome ao código. Depois é só arrastar códigos até os trechos.',
+      action: firstDoc ? 'Abrir “' + firstDoc.name.slice(0, 40) + '”' : 'Ver documentos',
+      go: firstDoc ? '/documents/' + firstDoc.id : '/documents'
+    },
+    {
+      text: 'Com os códigos em mãos: agrupe-os em temas na aba Códigos, cruze-os em Consultas e desenhe as relações em Redes (solte um código sobre outro para ligá-los).',
+      action: 'Abrir Redes', go: '/networks'
+    }
+  ][stage]
+  return (
+    <section className="next-step" aria-label="Próximo passo">
+      <ol className="next-step-track">
+        {steps.map((s, i) => (
+          <li key={s} className={i === stage ? 'is-current' : i < stage ? 'is-done' : ''}>{s}</li>
+        ))}
+      </ol>
+      <p>{body.text}</p>
+      <button className="btn btn--blue" onClick={() => navigate(body.go)}>{body.action}</button>
+    </section>
   )
 }
 

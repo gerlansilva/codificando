@@ -1,13 +1,63 @@
-# Codificando (Tauri)
+<p align="center">
+  <img src="src/assets/codificando-icon.png" width="96" alt="">
+</p>
 
-Análise qualitativa de dados — importação de PDF/DOCX/TXT/RTF, codificação direta na página
-do PDF, codebook hierárquico, trechos, consultas, comentários, relatórios e busca.
-Aplicativo 100% local para macOS (Apple Silicon) e Windows (x64).
+<h1 align="center">Codificando</h1>
 
-Esta versão substitui o shell Swift/WKWebView por **Tauri 2 + Rust**, mantendo o frontend React/Vite
+<p align="center">
+  Análise qualitativa de dados para quem está começando na pesquisa —<br>
+  do primeiro trecho marcado à rede de relações.
+</p>
+
+<p align="center">
+  <a href="docs/GUIA-RAPIDO.md">Guia rápido</a> ·
+  <a href="CHANGELOG.md">Novidades</a> ·
+  <a href="#baixar">Baixar</a> ·
+  <a href="#autoria-e-como-citar">Como citar</a>
+</p>
+
+![Arrastando um trecho até um código](docs/capturas/arrastar.png)
+
+Importa PDF, DOCX, TXT e RTF; codifica direto na página do PDF; organiza códigos em
+hierarquia; reúne trechos, consultas, comentários, redes e relatórios. Serve para análise
+de conteúdo, análise temática, grounded theory e fenomenologia hermenêutica.
+Aplicativo **100% local** para macOS (Apple Silicon) e Windows (x64): os dados não saem do
+computador.
+
+## Como funciona
+
+| Etapa | O que você faz | Onde |
+|---|---|---|
+| **1. Reunir os dados** | Importa entrevistas, artigos, documentos | Documentos |
+| **2. Codificar** | Seleciona trechos e arrasta até os códigos, como no ATLAS.ti | Editor, Códigos, Trechos |
+| **3. Analisar** | Agrupa, cruza e relaciona os códigos | Consultas, Redes, Relatórios |
+
+- **Arrastar e soltar**: seleção → código, código → trecho, código → código
+  (subcódigo ou mesclar) e, nas Redes, nó → nó para criar uma relação.
+- **Tela inicial** com Novo projeto, Abrir e Recentes. Não é obrigatório criar um projeto
+  antes: tudo é salvo sozinho, e um arquivo apagado gera um aviso, não um projeto vazio.
+- **Próximo passo** sempre visível na tela do projeto.
+
+O passo a passo com imagens está no [Guia rápido](docs/GUIA-RAPIDO.md).
+
+## Sobre esta versão
+
+Esta versão do aplicativo usa **Tauri 2 + Rust** no lugar do antigo shell Swift/WKWebView, mantendo o frontend React/Vite
 e o mesmo formato de dados do aplicativo anterior.
 
+
+## Autoria e como citar
+
+Criado e mantido por **Gerlan Silva da Silva** ([ORCID 0000-0002-9996-9983](https://orcid.org/0000-0002-9996-9983)).
+
+Ao usar o Codificando em pesquisas, cite:
+
+> SILVA, Gerlan Silva da. *Codificando*: software para análise qualitativa de dados. Versão 0.2.4. [S. l.], 2026. Disponível em: https://github.com/gerlansilva/codificando.
+
 ## Baixar
+
+> O repositório é **privado**: os instaladores e o manual nas releases ficam visíveis apenas
+> para quem tem acesso a ele.
 
 Os instaladores e o manual estão em
 [github.com/gerlansilva/codificando/releases](https://github.com/gerlansilva/codificando/releases):
@@ -47,46 +97,40 @@ a pena distribuir fora do grupo de pesquisa.
 
 ## Capturas
 
-Visão do projeto, com os documentos na barra lateral e os números do estudo.
+Tela inicial: novo projeto, abrir, recentes e créditos.
 
-![Página do projeto](docs/manual/capturas/home.png)
+![Tela inicial](docs/capturas/inicio.png)
 
-Codificação direta sobre a página do PDF, com os códigos à mão e os trechos já marcados.
+Visão do projeto com o **próximo passo** e os números do estudo.
 
-![Editor de PDF com citações](docs/manual/capturas/editor.png)
+![Projeto](docs/capturas/projeto.png)
 
-Codebook hierárquico, com cores, definições e contagem por código.
+Codificação direta sobre a página do PDF, com os códigos à mão.
 
-![Codebook](docs/manual/capturas/codes.png)
+![Editor de PDF](docs/capturas/editor.png)
 
-Trechos codificados, filtráveis por código, documento e busca.
+Livro de códigos hierárquico, com cores, definições e contagens.
 
-![Trechos](docs/manual/capturas/snippets.png)
+![Códigos](docs/capturas/codigos.png)
 
-Consultas salvas que combinam códigos e respondem "quais trechos sustentam esta afirmação".
+Trechos codificados, com texto e comentário legíveis e ações em lote.
 
-![Consultas](docs/manual/capturas/consultas.png)
+![Trechos](docs/capturas/trechos.png)
 
-Rede de relações: coocorrência de códigos, citações e vínculos nomeados, com foco por código
-e exportação em SVG, PNG ou figura de artigo de 16 cm.
+Consultas que combinam códigos.
 
-![Redes de relações](docs/manual/capturas/networks.png)
+![Consultas](docs/capturas/consultas.png)
 
-Relatórios com contagens, trechos por código e exportação para DOCX, Markdown e impressão.
+Rede de relações: arraste nós, solte um sobre outro para relacioná-los e exporte em SVG,
+PNG ou figura de artigo de 16 cm.
 
-![Relatórios](docs/manual/capturas/reports.png)
+![Redes](docs/capturas/redes.png)
 
-Busca global em documentos, códigos, trechos e comentários.
+Relatórios com exportações agrupadas por uso (Word, HTML, CSV, TXT).
 
-![Busca](docs/manual/capturas/search.png)
+![Relatórios](docs/capturas/relatorios.png)
 
-Comentários e memos analíticos vinculados a documentos, códigos ou trechos.
-
-![Comentários](docs/manual/capturas/comments.png)
-
-Configurações, dados, backups e verificação manual de atualizações.
-
-![Configurações](docs/manual/capturas/settings.png)
+As capturas da versão 0.2.4 usadas no manual em PDF continuam em `docs/manual/capturas/`.
 
 ## Requisitos
 
@@ -196,6 +240,15 @@ Em outra máquina, copie a pasta inteira para manter arquivos e backups.
 - `src-tauri/src/lib.rs` — comandos nativos: leitura/gravação do projeto, binários,
   seletores de arquivos, conversão `.doc`/`.rtf` via `textutil` e impressão.
 - `src-tauri/tauri.conf.json` — janela, bundle e identificador.
+
+## Documentação
+
+- [Guia rápido](docs/GUIA-RAPIDO.md) — passo a passo para iniciantes.
+- [Registro de mudanças](CHANGELOG.md).
+- [Diagnóstico de usabilidade](docs/UX-DIAGNOSTICO.md) — análise da interface, comparação
+  com o webQDA e perfis por método.
+- [Rodada com PDFs reais](docs/UX-RODADA-PDF.md) — teste de uso com três PDFs acadêmicos.
+- [Distribuição](docs/DISTRIBUICAO.md) — assinatura, notarização e atualizações.
 
 ## Observações
 

@@ -5,14 +5,25 @@ import Icon from './Icon.jsx'
 import wordmark from '../assets/codificando-wordmark.png'
 import { modKey } from '../lib/platform.js'
 
-const NAV = [
-  { key: 'search', label: 'Buscar', path: 'search', icon: 'search' },
-  { key: 'codes', label: 'Códigos', path: 'codes', icon: 'codes' },
-  { key: 'snippets', label: 'Trechos', path: 'snippets', icon: 'snippets' },
-  { key: 'consultas', label: 'Consultas', path: 'consultas', icon: 'search' },
-  { key: 'comments', label: 'Comentários', path: 'comments', icon: 'comments' },
-  { key: 'networks', label: 'Redes', path: 'networks', icon: 'network' },
-  { key: 'reports', label: 'Relatórios', path: 'reports', icon: 'reports' }
+// Navegação agrupada pelas etapas do trabalho analítico (dados → codificar → analisar),
+// em vez de uma lista plana de funcionalidades.
+const GROUPS = [
+  {
+    label: 'Codificar',
+    items: [
+      { key: 'codes', label: 'Códigos', path: 'codes', icon: 'codes' },
+      { key: 'snippets', label: 'Trechos', path: 'snippets', icon: 'snippets' },
+      { key: 'comments', label: 'Comentários', path: 'comments', icon: 'comments' }
+    ]
+  },
+  {
+    label: 'Analisar',
+    items: [
+      { key: 'consultas', label: 'Consultas', path: 'consultas', icon: 'query' },
+      { key: 'networks', label: 'Redes', path: 'networks', icon: 'network' },
+      { key: 'reports', label: 'Relatórios', path: 'reports', icon: 'reports' }
+    ]
+  }
 ]
 
 export default function Sidebar ({ route, collapsed, onCollapse }) {
@@ -37,7 +48,16 @@ export default function Sidebar ({ route, collapsed, onCollapse }) {
         <button className="collapse-btn" title={`Recolher menu (${modKey('B')})`} onClick={onCollapse}>«</button>
       </div>
 
-      <nav className="sidebar-nav">
+      <button
+        className={'sidebar-search' + (route.name === 'search' ? ' active' : '')}
+        onClick={() => navigate('/search')}
+      >
+        <Icon name="search" size={15} />
+        <span>Buscar no projeto</span>
+      </button>
+
+      <nav className="sidebar-nav" aria-label="Etapas da análise">
+        <div className="nav-group-label">Dados</div>
         <button
           className={'nav-item' + (['documents', 'new'].includes(route.name) ? ' active' : '')}
           onClick={() => navigate('/documents')}
@@ -74,18 +94,24 @@ export default function Sidebar ({ route, collapsed, onCollapse }) {
           </div>
         )}
 
-        {NAV.map((item) => (
-          <button
-            key={item.key}
-            className={'nav-item' + (route.name === item.key ? ' active' : '')}
-            onClick={() => navigate('/' + item.path)}
-          >
-            <Icon name={item.icon} size={18} />
-            <span className="nav-label">{item.label}</span>
-            {item.key === 'comments' && commentCount > 0 && (
-              <span className="nav-badge" title={`${commentCount} comentário${commentCount === 1 ? '' : 's'}`}>{commentCount}</span>
-            )}
-          </button>
+        {GROUPS.map((group) => (
+          <React.Fragment key={group.label}>
+            <div className="nav-group-label">{group.label}</div>
+            {group.items.map((item) => (
+              <button
+                key={item.key}
+                className={'nav-item' + (route.name === item.key ? ' active' : '')}
+                aria-current={route.name === item.key ? 'page' : undefined}
+                onClick={() => navigate('/' + item.path)}
+              >
+                <Icon name={item.icon} size={18} />
+                <span className="nav-label">{item.label}</span>
+                {item.key === 'comments' && commentCount > 0 && (
+                  <span className="nav-badge" title={`${commentCount} comentário${commentCount === 1 ? '' : 's'}`}>{commentCount}</span>
+                )}
+              </button>
+            ))}
+          </React.Fragment>
         ))}
       </nav>
 

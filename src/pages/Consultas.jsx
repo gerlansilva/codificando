@@ -294,7 +294,7 @@ export default function Consultas () {
                 <th style={{ width: 50, textAlign: 'right' }}>Pág.</th>
                 <th style={{ width: 210 }}>Códigos</th>
                 <th>Trecho</th>
-                <th style={{ width: 40 }} />
+                <th style={{ width: 40 }}><span className="sr-only">Ações</span></th>
               </tr>
             </thead>
             <tbody>

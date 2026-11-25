@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { loadData, saveData, uid, emptyData, loadSettings, saveSettings, setProjectPath, getProjectPath, onSaveStatus, retrySave, touchRecentProject, flushNow, isProjectProtected, rememberPassword, setProjectPassword, forgetProjectPassword, checkProjectPassword } from './data/store.js'
+import { loadData, saveData, uid, emptyData, loadSettings, saveSettings, setProjectPath, getProjectPath, onSaveStatus, retrySave, touchRecentProject, removeRecentProject, loadRecentProjects, flushNow, isProjectProtected, rememberPassword, setProjectPassword, forgetProjectPassword, checkProjectPassword } from './data/store.js'
 import { deleteBinary } from './lib/files.js'
 import { moveCode as moveCodeFn, nextColor, mergeCodeList } from './lib/codes.js'
 import { bridge } from './lib/bridge.js'
@@ -8,6 +8,7 @@ import Sidebar from './components/Sidebar.jsx'
 import AddTranscript from './pages/AddTranscript.jsx'
 import Transcripts from './pages/Transcripts.jsx'
 import Editor from './pages/Editor.jsx'
+import Start from './pages/Start.jsx'
 import Codebook from './pages/Codebook.jsx'
 import Snippets from './pages/Snippets.jsx'
 import Reports from './pages/Reports.jsx'
@@ -24,7 +25,15 @@ import PasswordModal from './components/PasswordModal.jsx'
 const DataContext = createContext(null)
 export const useData = () => useContext(DataContext)
 
-const ROUTES = ['transcripts', 'new', 'codes', 'snippets', 'comments', 'consultas', 'reports', 'networks', 'search', 'settings', 'home', 'print']
+const ROUTES = ['start', 'transcripts', 'new', 'codes', 'snippets', 'comments', 'consultas', 'reports', 'networks', 'search', 'settings', 'home', 'print']
+
+/** Aviso amigável quando o arquivo de um projeto não existe mais. */
+function missingMessage (path) {
+  const rec = loadRecentProjects().find((r) => r.path === path)
+  const name = rec?.name ? '“' + rec.name + '”' : 'do projeto'
+  return 'Não encontrei o arquivo ' + name + ' (' + path + '). Ele pode ter sido movido, renomeado ou excluído. ' +
+    'Nada mais foi afetado: se você moveu o arquivo, use “Abrir projeto…” e escolha o novo local.'
+}
 
 function parseHash () {
   const raw = window.location.hash.replace(/^#\/?/, '')
@@ -61,6 +70,7 @@ export default function App () {
   const [route, setRoute] = useState(parseHash)
   const [saveError, setSaveError] = useState(null)
   const [fileNotice, setFileNotice] = useState(null)
+  const [startNotice, setStartNotice] = useState(null)
   const [data, setData] = useState(null)
   const [ready, setReady] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('investigando.sidebar') === 'collapsed')
@@ -142,9 +152,23 @@ export default function App () {
         setProtectedNow(isProjectProtected(path))
         setData(d)
         dataRef.current = d
+        // primeira vez (nenhum arquivo, nada importado): mostra a tela inicial
+        if (!path && !d.transcripts.length && !d.codes.length && !window.location.hash.replace(/^#\/?/, '')) navigate('/start')
         setReady(true)
       } catch (err) {
         if (cancelled) return
+        if (err?.code === 'PROJECT_MISSING') {
+          setStartNotice(missingMessage(err.path))
+          removeRecentProject(err.path)
+          setProjectPath(null)
+          setSettings(saveSettings({ projectPath: null }))
+          const d = normalizeData(await loadData(null).catch(() => emptyData()))
+          setData(d)
+          dataRef.current = d
+          navigate('/start')
+          setReady(true)
+          return
+        }
         if (err?.code === 'PASSWORD_REQUIRED' || err?.code === 'PASSWORD_INVALID') {
           // não inicializa um projeto vazio por cima de um arquivo cifrado
           setPwError(err.code === 'PASSWORD_INVALID' ? 'Senha incorreta.' : null)
@@ -230,9 +254,16 @@ export default function App () {
       // salvamento pendente do projeto aberto caia no arquivo novo
       const d = normalizeData(await loadData(path))
       finishOpen(path, d)
+      setStartNotice(null)
       navigate('/home')
       return path
     } catch (err) {
+      if (err?.code === 'PROJECT_MISSING') {
+        setStartNotice(missingMessage(path))
+        removeRecentProject(path)
+        navigate('/start')
+        return null
+      }
       if (err?.code === 'PASSWORD_REQUIRED' || err?.code === 'PASSWORD_INVALID') {
         setPwError(err.code === 'PASSWORD_INVALID' ? 'Senha incorreta.' : null)
         setPwModal({ mode: 'unlock', path, previousPath: previous })
@@ -598,6 +629,9 @@ export default function App () {
     setProfile: (patch) => {
       setSettings(saveSettings({ profile: { ...(settings?.profile || {}), ...patch } }))
     },
+    startNotice,
+    dismissStartNotice: () => setStartNotice(null),
+    projectPath: getProjectPath(),
     newProject: (name, description) => {
       setProjectPath(null)
       setSettings(saveSettings({ projectPath: null }))
@@ -658,7 +692,7 @@ export default function App () {
     removeExcerpt: (id) => {
       update((d) => ({ ...d, excerpts: d.excerpts.filter((e) => e.id !== id) }))
     }
-  }), [data, settings, protectedNow, requestPasswordAction, update, openProjectAt, reloadProject, askSaveProtection])
+  }), [data, settings, startNotice, protectedNow, requestPasswordAction, update, openProjectAt, reloadProject, askSaveProtection])
 
   if (!ready) {
     return <div style={{ padding: 40, fontFamily: 'Helvetica Neue, sans-serif' }}>Carregando…</div>
@@ -678,6 +712,14 @@ export default function App () {
   }
 
   const transcript = route.id ? data.transcripts.find((t) => t.id === route.id) : null
+
+  if (route.name === 'start') {
+    return (
+      <DataContext.Provider value={api}>
+        <Start />
+      </DataContext.Provider>
+    )
+  }
 
   return (
     <DataContext.Provider value={api}>
@@ -706,7 +748,7 @@ export default function App () {
           collapsed={collapsed}
           onCollapse={() => setCollapsed(true)}
         />
-        <div className="content">
+        <main className="content">
           <div className="app-top">
             <div className="app-project-wrap">
               {editingProject
@@ -763,6 +805,10 @@ export default function App () {
                     Renomear projeto
                     <small>O nome aparece no alto de todas as abas</small>
                   </button>
+                  <button onClick={() => { setProjectMenu(false); navigate('/start') }}>
+                    Tela inicial
+                    <small>Novo projeto, abrir outro ou ver os recentes</small>
+                  </button>
                   <button onClick={() => { setProjectMenu(false); api.openProject() }}>
                     Abrir projeto…
                     <small>Escolher um arquivo .investigando</small>
@@ -807,7 +853,7 @@ export default function App () {
           {route.name === 'transcripts' && <Transcripts />}
           {route.name === 'documents' && <Transcripts />}
           {route.name === 'new' && <AddTranscript />}
-          {route.name === 'transcript' && transcript && <Editor transcript={transcript} focusPage={route.page} focusExcerpt={route.excerpt} findTerm={route.find} findOcc={route.occ} inspectQuote={route.inspect} />}
+          {route.name === 'transcript' && transcript && <Editor key={transcript.id} transcript={transcript} focusPage={route.page} focusExcerpt={route.excerpt} findTerm={route.find} findOcc={route.occ} inspectQuote={route.inspect} />}
           {route.name === 'transcript' && !transcript && (
             <div className="empty">
               <h2>Documento não encontrado</h2>
@@ -827,7 +873,7 @@ export default function App () {
           {route.name === 'networks' && <Networks />}
           {route.name === 'search' && <Search />}
           {route.name === 'print' && transcript && <Print transcript={transcript} />}
-        </div>
+        </main>
       </div>
       {pwModal && (
         <PasswordModal

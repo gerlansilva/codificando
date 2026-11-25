@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useData } from '../App.jsx'
 import { bridge } from '../lib/bridge.js'
+import { AUTHOR, citation } from '../lib/about.js'
+import { copyText } from '../lib/clipboard.js'
 import { getProjectPath, shortPath } from '../data/store.js'
 import {
   checkForUpdates,
@@ -179,6 +181,8 @@ export default function Settings () {
               />
             </div>
           </section>
+
+          <AboutCard />
 
           <section className="settings-card">
             <div className="card-head">
@@ -392,6 +396,32 @@ export default function Settings () {
         </div>
       </div>
     </>
+  )
+}
+
+function AboutCard () {
+  const [copied, setCopied] = useState(false)
+  const ref = citation()
+  return (
+    <section className="settings-card about-card" aria-labelledby="about-title">
+      <div className="card-head">
+        <h2 id="about-title">Sobre o Codificando</h2>
+      </div>
+      <p className="about-line">
+        Criado e mantido por <strong>{AUTHOR.name}</strong>
+        {' · '}
+        <a href={AUTHOR.orcidUrl} onClick={(e) => { e.preventDefault(); bridge.openExternal(AUTHOR.orcidUrl) }}>ORCID {AUTHOR.orcid}</a>
+      </p>
+      <p className="sub">Versão {__APP_VERSION__} · gratuito e local — seus dados não saem do computador.</p>
+      <label className="field-label settings-field-gap">Como citar (ABNT)</label>
+      <p className="about-cite">{ref}</p>
+      <div className="settings-actions">
+        <button className="btn btn--sm" onClick={async () => { await copyText(ref); setCopied(true); setTimeout(() => setCopied(false), 1500) }}>
+          {copied ? 'Copiado' : 'Copiar referência'}
+        </button>
+        <button className="btn btn--sm btn--ghost" onClick={() => bridge.openExternal(AUTHOR.repo)}>Página do projeto</button>
+      </div>
+    </section>
   )
 }
 

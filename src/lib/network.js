@@ -1087,6 +1087,20 @@ const escapeXml = (s) => String(s)
  * @param {Array} edges
  * @param {object} opts { width, height, title, subtitle, showLabels }
  */
+/**
+ * Fundo claro para a caixa do código (cor do código a ~24% sobre branco).
+ * O texto escuro fica legível com qualquer cor (contraste ≥ 7:1); a cor
+ * do código aparece na borda.
+ */
+export function codeFill (color, amount = 0.24) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(color || '').trim())
+  if (!m) return '#eef2f8'
+  const n = parseInt(m[1], 16)
+  const mix = (c) => Math.round(255 - (255 - c) * amount)
+  const r = mix((n >> 16) & 255); const g = mix((n >> 8) & 255); const b = mix(n & 255)
+  return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')
+}
+
 export function networkSvg (nodes, edges, opts = {}) {
   const {
     width = 1400,
@@ -1147,7 +1161,7 @@ export function networkSvg (nodes, edges, opts = {}) {
         return `<g><rect x="${x}" y="${y}" width="${box.w}" height="${box.h}" rx="${box.radius}" fill="#ffffff" stroke="${n.color}" stroke-width="${print ? 1.9 : 1.1}" /><rect x="${x}" y="${y}" width="${print ? 5 : 3}" height="${box.h}" rx="1.5" fill="${n.color}" /></g>`
       }
       const ring = `<rect x="${(n.x - box.w / 2 - 2.5).toFixed(1)}" y="${(n.y - box.h / 2 - 2.5).toFixed(1)}" width="${box.w + 5}" height="${box.h + 5}" rx="${box.radius + 2}" fill="none" stroke="${n.color}" stroke-opacity="0.3" stroke-width="${print ? 2 : 1.4}" />`
-      return `<g><rect x="${x}" y="${y}" width="${box.w}" height="${box.h}" rx="${box.radius}" fill="${n.color}" stroke="#ffffff" stroke-width="${print ? 2.4 : 1.6}" />${ring}</g>`
+      return `<g><rect x="${x}" y="${y}" width="${box.w}" height="${box.h}" rx="${box.radius}" fill="${codeFill(n.color)}" stroke="${n.color}" stroke-width="${print ? 2.4 : 1.8}" />${ring}</g>`
     }
     const r = nodeRadius(n)
     const opacity = n.kind === 'quote' ? 0.85 : 1
@@ -1208,7 +1222,7 @@ ${subtitle ? `<text x="56" y="${92}" font-family="Helvetica Neue, Helvetica, Ari
   <text font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="${footerSize}" fill="#4b5563">${stats.codes} códigos · ${quoteLabel}${stats.docs ? ` · ${stats.docs} documentos` : ''}${focusNote} · Codificando</text>
 </g>
 <g transform="translate(${width - (print ? 300 : 250)}, ${height - 48})" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="${footerSize}" fill="#4b5563">
-  <rect x="0" y="-12" width="18" height="13" rx="3" fill="#4A90E2" />
+  <rect x="0" y="-12" width="18" height="13" rx="3" fill="${codeFill('#4A90E2')}" stroke="#4A90E2" stroke-width="1.4" />
   <text x="26" y="0">código</text>
   ${nodes.some((n) => n.kind === 'quote' && nodeSize(n))
     ? '<rect x="102" y="-11" width="18" height="12" rx="2" fill="#ffffff" stroke="#8a97a8" /><text x="128" y="0">trecho</text>'

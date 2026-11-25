@@ -107,12 +107,12 @@ export default function Transcripts () {
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {groups.length > 0 && (
-                    <select className="input" style={{ width: 130, padding: '6px 10px' }} value={group} onChange={(e) => setGroup(e.target.value)}>
+                    <select aria-label="Filtrar por grupo" className="input" style={{ width: 130, padding: '6px 10px' }} value={group} onChange={(e) => setGroup(e.target.value)}>
                       <option value="all">Todos os grupos</option>
                       {groups.map((g) => <option key={g} value={g}>{g}</option>)}
                     </select>
                   )}
-                  <select className="input" style={{ width: 110, padding: '6px 10px' }} value={type} onChange={(e) => setType(e.target.value)}>
+                  <select aria-label="Filtrar por tipo" className="input" style={{ width: 110, padding: '6px 10px' }} value={type} onChange={(e) => setType(e.target.value)}>
                     <option value="all">Todos</option>
                     <option value="pdf">PDF</option>
                     <option value="text">Texto</option>
@@ -132,7 +132,7 @@ export default function Transcripts () {
                     <th>Documento</th>
                     <th style={{ width: 120 }}>Trechos</th>
                     <th style={{ width: 160 }}>Adicionado em</th>
-                    <th style={{ width: 44 }} />
+                    <th style={{ width: 44 }}><span className="sr-only">Ações</span></th>
                   </tr>
                 </thead>
                 <tbody>

@@ -36,6 +36,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "publisher": "Gerlan Silva da Silva",
+    "copyright": "© 2025–2026 Gerlan Silva da Silva",
+    "shortDescription": "Análise qualitativa de dados",
+    "longDescription": "Codificando — software gratuito para análise qualitativa de dados, criado por Gerlan Silva da Silva.",
     "macOS": {
       "minimumSystemVersion": "11.0"
     },

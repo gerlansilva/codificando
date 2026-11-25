@@ -157,6 +157,7 @@ export default function Snippets () {
           <select
             className="input"
             style={{ width: 190, padding: '6px 10px' }}
+            aria-label="Filtrar por documento"
             value={activeDoc}
             onChange={(e) => setActiveDoc(e.target.value)}
           >
@@ -169,11 +170,12 @@ export default function Snippets () {
             className="input"
             style={{ width: 200, padding: '6px 10px' }}
             placeholder="Filtrar pelo texto…"
+            aria-label="Filtrar pelo texto"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
           {usedCodes.length > 0 && (
-            <select className="input" style={{ width: 170, marginLeft: 8 }} value={activeCode} onChange={(e) => setActiveCode(e.target.value)}>
+            <select className="input" style={{ width: 170, marginLeft: 8 }} aria-label="Filtrar por código" value={activeCode} onChange={(e) => setActiveCode(e.target.value)}>
               <option value="all">Todos os códigos</option>
               {usedCodes.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -238,6 +240,7 @@ export default function Snippets () {
                       <input
                         type="checkbox"
                         checked={allFilteredSelected}
+                        aria-label="Selecionar todos os trechos filtrados"
                         onChange={toggleAllFiltered}
                         title={`Selecionar todos os ${filtered.length} filtrados`}
                       />
@@ -281,7 +284,7 @@ export default function Snippets () {
                             ))}
                           </span>
                         </td>
-                        <td className="text" title={q.text}>“{q.text}”</td>
+                        <td className="text" title={q.text}><span className="clamp-3">“{q.text}”</span></td>
                         <td
                           className="comment-cell"
                           onClick={(e) => {
