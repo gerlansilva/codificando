@@ -1,12 +1,19 @@
 # Registro de mudanças
 
-## [Não lançado] — novembro de 2026
+## [0.3.0] — novembro de 2026
 
 Rodada de usabilidade para pesquisadores iniciantes: menos botões, mais arrastar e soltar,
 e um caminho claro do primeiro documento à rede. Diagnóstico completo em
 [docs/UX-DIAGNOSTICO.md](docs/UX-DIAGNOSTICO.md) e teste com PDFs reais em
 [docs/UX-RODADA-PDF.md](docs/UX-RODADA-PDF.md). Guia de uso em
 [docs/GUIA-RAPIDO.md](docs/GUIA-RAPIDO.md).
+
+### Corrigido
+
+- **Instalação no macOS**: o `.app` agora sai com assinatura ad hoc (`signingIdentity: "-"`).
+  Sem ela, o macOS em Apple Silicon dizia que o app estava "danificado" ao abrir o `.dmg`
+  baixado pelo navegador, sem oferecer "Abrir mesmo assim". O CI confere a assinatura com
+  `codesign --verify`.
 
 ### Novo
 

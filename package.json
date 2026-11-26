@@ -1,7 +1,7 @@
 {
   "name": "investigando",
   "productName": "Codificando",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "author": "Gerlan Silva da Silva (https://orcid.org/0000-0002-9996-9983)",
   "description": "Codificando — análise qualitativa de dados. App desktop em Tauri.",
   "private": true,

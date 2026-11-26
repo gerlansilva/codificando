@@ -47,14 +47,17 @@ jobs:
             macOS (Apple Silicon): baixe o `.dmg` e arraste o Codificando para Aplicativos.
             Windows (x64): baixe o instalador `.msi` ou `.exe`.
 
-            Nesta versão: as marcações do PDF ficam translúcidas, com o texto legível
-            por cima, e a seleção de texto acompanha o zoom.
+            Novidades: tela inicial, arrastar e soltar no estilo do ATLAS.ti, Modo Área
+            para codificar figuras, gráficos e quadros do PDF, exportação das redes em
+            SVG/PNG e créditos do autor. Detalhes no CHANGELOG.md e em docs/GUIA-RAPIDO.md.
 
-            O manual completo está em anexo (`Codificando-manual-0.2.4.pdf`).
             Não há certificado de desenvolvedor: o app é gratuito e sem mensalidade.
-            No macOS, abra com botão direito → Abrir; no Windows, use
-            "Mais informações → Executar assim mesmo" se o SmartScreen avisar.
-          releaseDraft: true
+            No macOS, abra com botão direito → Abrir (ou Ajustes → Privacidade e
+            Segurança → Abrir mesmo assim). Se disser "danificado", rode no Terminal:
+            xattr -cr /Applications/Codificando.app
+            No Windows, use "Mais informações → Executar assim mesmo" se o SmartScreen avisar.
+            Passo a passo em COMO-ABRIR.txt.
+          releaseDraft: false
           prerelease: false
           args: >-
             --target aarch64-apple-darwin
@@ -88,14 +91,17 @@ jobs:
             macOS (Apple Silicon): baixe o `.dmg` e arraste o Codificando para Aplicativos.
             Windows (x64): baixe o instalador `.msi` ou `.exe`.
 
-            Nesta versão: as marcações do PDF ficam translúcidas, com o texto legível
-            por cima, e a seleção de texto acompanha o zoom.
+            Novidades: tela inicial, arrastar e soltar no estilo do ATLAS.ti, Modo Área
+            para codificar figuras, gráficos e quadros do PDF, exportação das redes em
+            SVG/PNG e créditos do autor. Detalhes no CHANGELOG.md e em docs/GUIA-RAPIDO.md.
 
-            O manual completo está em anexo (`Codificando-manual-0.2.4.pdf`).
             Não há certificado de desenvolvedor: o app é gratuito e sem mensalidade.
-            No macOS, abra com botão direito → Abrir; no Windows, use
-            "Mais informações → Executar assim mesmo" se o SmartScreen avisar.
-          releaseDraft: true
+            No macOS, abra com botão direito → Abrir (ou Ajustes → Privacidade e
+            Segurança → Abrir mesmo assim). Se disser "danificado", rode no Terminal:
+            xattr -cr /Applications/Codificando.app
+            No Windows, use "Mais informações → Executar assim mesmo" se o SmartScreen avisar.
+            Passo a passo em COMO-ABRIR.txt.
+          releaseDraft: false
           prerelease: false
           args: >-
             --config src-tauri/tauri.ci.conf.json

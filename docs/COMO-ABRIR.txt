@@ -28,7 +28,7 @@ MACOS (Apple Silicon)
 
 Se aparecer "o app está danificado", abra o Terminal e rode:
 
-   xattr -dr com.apple.quarantine /Applications/Codificando.app
+   xattr -cr /Applications/Codificando.app
 
 Depois abra o app normalmente.
 

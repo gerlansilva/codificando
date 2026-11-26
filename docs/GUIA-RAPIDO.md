@@ -141,4 +141,4 @@ As exportações estão agrupadas pelo uso:
 Em **Configurações → Sobre o Codificando** há a referência pronta para copiar:
 
 > SILVA, Gerlan Silva da. *Codificando*: software para análise qualitativa de dados.
-> Versão 0.2.4. [S. l.], 2026. Disponível em: https://github.com/gerlansilva/codificando.
+> Versão 0.3.0. [S. l.], 2026. Disponível em: https://github.com/gerlansilva/codificando.
