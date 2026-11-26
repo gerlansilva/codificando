@@ -169,7 +169,9 @@ try {
   // 3. as marcações existem, estão visíveis e caem sobre o texto
   const check = await page.evaluate(() => {
     const pageEl = document.querySelector('.pdf-page')
-    pageEl.scrollIntoView({ block: 'center' })
+    // centraliza a primeira marcação (a página é mais alta que a janela e o topo
+    // ficaria sob a barra de ferramentas do documento)
+    pageEl.querySelector('.pdf-highlight')?.scrollIntoView({ block: 'center' })
     const pr = pageEl.getBoundingClientRect()
     const spans = [...pageEl.querySelectorAll('.textLayer span')].map((s) => s.getBoundingClientRect())
     return [...pageEl.querySelectorAll('.pdf-highlight')].map((h) => {
@@ -317,7 +319,10 @@ try {
   await page.evaluate(() => { window.location.hash = '#/settings' })
   await new Promise((r) => setTimeout(r, 700))
   const settings = await page.evaluate(() => {
-    const text = document.body.innerText
+    // o card "Sobre" mostra o autor de propósito; o perfil do usuário não
+    const clone = document.body.cloneNode(true)
+    clone.querySelectorAll('.about-card').forEach((el) => el.remove())
+    const text = clone.innerText || clone.textContent
     const inputs = [...document.querySelectorAll('.me-name-input, .me-sub-input')]
     return {
       title: document.querySelector('.app-project')?.textContent || '',

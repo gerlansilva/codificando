@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Codificando",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "identifier": "br.com.gerlan.codificando",
   "build": {
     "frontendDist": "../dist",
@@ -41,7 +41,8 @@
     "shortDescription": "Análise qualitativa de dados",
     "longDescription": "Codificando — software gratuito para análise qualitativa de dados, criado por Gerlan Silva da Silva.",
     "macOS": {
-      "minimumSystemVersion": "11.0"
+      "minimumSystemVersion": "11.0",
+      "signingIdentity": "-"
     },
     "createUpdaterArtifacts": true
   },

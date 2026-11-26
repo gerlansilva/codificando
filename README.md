@@ -54,7 +54,7 @@ Criado e mantido por **Gerlan Silva da Silva** ([ORCID 0000-0002-9996-9983](http
 
 Ao usar o Codificando em pesquisas, cite:
 
-> SILVA, Gerlan Silva da. *Codificando*: software para análise qualitativa de dados. Versão 0.2.4. [S. l.], 2026. Disponível em: https://github.com/gerlansilva/codificando.
+> SILVA, Gerlan Silva da. *Codificando*: software para análise qualitativa de dados. Versão 0.3.0. [S. l.], 2026. Disponível em: https://github.com/gerlansilva/codificando.
 
 ## Baixar
 
@@ -64,9 +64,10 @@ Ao usar o Codificando em pesquisas, cite:
 Os instaladores e o manual estão em
 [github.com/gerlansilva/codificando/releases](https://github.com/gerlansilva/codificando/releases):
 
-- macOS (Apple Silicon): `Codificando_0.2.4_aarch64.dmg`
-- Windows (x64): `Codificando_0.2.4_x64-setup.exe` (NSIS) ou `.msi`
-- Manual: `Codificando-manual-0.2.4.pdf`
+- macOS (Apple Silicon): `Codificando_0.3.0_aarch64.dmg`
+- Windows (x64): `Codificando_0.3.0_x64-setup.exe` (NSIS) ou `.msi`
+- Manual: `Codificando-manual-0.2.4.pdf` (ainda da versão 0.2.4; as novidades da 0.3.0 estão no
+  [Guia rápido](docs/GUIA-RAPIDO.md))
 
 ## Aviso de segurança do sistema
 
@@ -81,8 +82,13 @@ quem publicou o arquivo. Os instaladores daqui não têm esse certificado.
 2. No Finder, clique no Codificando com o botão direito e escolha **Abrir** → **Abrir**.
 3. Se o macOS 14 ou 15 insistir, vá em **Ajustes do Sistema → Privacidade e Segurança** e
    clique em **Abrir mesmo assim**.
-4. Como último recurso, no Terminal:
-   `xattr -dr com.apple.quarantine /Applications/Codificando.app`
+4. Se aparecer **"o Codificando está danificado e não pode ser aberto"**, rode no Terminal:
+   `xattr -cr /Applications/Codificando.app` e abra de novo.
+
+Desde a versão 0.3.0 o app sai com **assinatura ad hoc** (gratuita, sem conta de
+desenvolvedor). Ela não tira o aviso, mas faz o macOS mostrar o caminho normal de
+"Abrir mesmo assim" em vez da mensagem de app danificado, que aparecia nos `.dmg` das
+versões 0.2.x baixados pelo navegador.
 
 **Windows** — o SmartScreen diz "O Windows protegeu o computador":
 
@@ -164,12 +170,12 @@ npx tauri build
 Artefatos no macOS:
 
 - `src-tauri/target/release/bundle/macos/Codificando.app`
-- `src-tauri/target/release/bundle/dmg/Codificando_0.2.4_aarch64.dmg`
+- `src-tauri/target/release/bundle/dmg/Codificando_0.3.0_aarch64.dmg`
 
 No Windows, o mesmo comando gera:
 
-- `src-tauri\target\release\bundle\nsis\Codificando_0.2.4_x64-setup.exe`
-- `src-tauri\target\release\bundle\msi\Codificando_0.2.4_x64_en-US.msi`
+- `src-tauri\target\release\bundle\nsis\Codificando_0.3.0_x64-setup.exe`
+- `src-tauri\target\release\bundle\msi\Codificando_0.3.0_x64_en-US.msi`
 
 Assinatura, notarização, atualizações automáticas e instalação local estão em
 [docs/DISTRIBUICAO.md](docs/DISTRIBUICAO.md). Como o app está configurado para
@@ -204,8 +210,8 @@ faz isso no GitHub Actions:
    `tauri-apps/tauri-action` para gerar os instaladores.
 3. Ao final, baixe o artefato `codificando-windows-installer` na página da
    execução. Ele contém:
-   - `Codificando_0.2.4_x64-setup.exe` (NSIS)
-   - `Codificando_0.2.4_x64_en-US.msi` (MSI)
+   - `Codificando_0.3.0_x64-setup.exe` (NSIS)
+   - `Codificando_0.3.0_x64_en-US.msi` (MSI)
 
 O mesmo workflow também valida os testes (`test`), o `cargo check` (`rust`) e
 gera o `.dmg` no job `build-macos`, disponível no artefato

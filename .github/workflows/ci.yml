@@ -124,6 +124,12 @@ jobs:
           # O CI não tem a chave do updater: gera só os instaladores.
           args: '--config src-tauri/tauri.ci.conf.json'
 
+      - name: Conferir assinatura ad hoc do .app
+        run: |
+          APP=src-tauri/target/release/bundle/macos/Codificando.app
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dv "$APP" 2>&1 | tee /dev/stderr | grep -q "Signature=adhoc"
+
       - uses: actions/upload-artifact@v4
         with:
           name: codificando-macos-dmg
