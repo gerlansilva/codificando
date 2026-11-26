@@ -57,7 +57,7 @@ jobs:
             xattr -cr /Applications/Codificando.app
             No Windows, use "Mais informações → Executar assim mesmo" se o SmartScreen avisar.
             Passo a passo em COMO-ABRIR.txt.
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: >-
             --target aarch64-apple-darwin
@@ -101,7 +101,7 @@ jobs:
             xattr -cr /Applications/Codificando.app
             No Windows, use "Mais informações → Executar assim mesmo" se o SmartScreen avisar.
             Passo a passo em COMO-ABRIR.txt.
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: >-
             --config src-tauri/tauri.ci.conf.json
